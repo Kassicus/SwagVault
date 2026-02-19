@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import {
   getIntegrations,
   saveIntegration,
@@ -112,6 +113,27 @@ export default function IntegrationsPage() {
           {message.text}
         </div>
       )}
+
+      {/* Zapier / n8n link */}
+      <Link
+        href="/admin/settings/integrations/templates"
+        className="mb-6 flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:border-primary/50 hover:bg-muted/30"
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
+          <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          </svg>
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium">Zapier / n8n Templates</p>
+          <p className="text-xs text-muted-foreground">
+            Setup guides, example payloads, and automation recipes for Zapier and n8n
+          </p>
+        </div>
+        <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+      </Link>
 
       <div className="space-y-6">
         {/* Slack */}
