@@ -15,6 +15,8 @@ import {
   createOrgSchema,
   configureCurrencySchema,
 } from "@/lib/validators/signup";
+import { sendEmail } from "@/lib/email/client";
+import { welcomeEmailHtml } from "@/lib/email/templates/welcome";
 
 export async function checkSlugAvailability(
   slug: string
@@ -130,6 +132,21 @@ export async function configureCurrency(formData: {
   return { success: true };
 }
 
-export async function signInAfterSignup(userId: string, email: string, displayName: string) {
+export async function signInAfterSignup(userId: string, email: string, displayName: string, orgName?: string, orgSlug?: string) {
   await createSession({ id: userId, email, displayName });
+
+  // Send welcome email (non-blocking)
+  if (orgName) {
+    try {
+      const domain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? "getswagvault.com";
+      const loginUrl = `https://${orgSlug ?? ""}.${domain}/admin/dashboard`;
+      await sendEmail({
+        to: email,
+        subject: `Welcome to ${orgName} on SwagVault!`,
+        html: welcomeEmailHtml({ displayName, orgName, loginUrl }),
+      });
+    } catch {
+      // Email failure shouldn't block signup
+    }
+  }
 }

@@ -1,25 +1,47 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { withTenant } from "@/lib/db/tenant";
 import { items } from "@/lib/db/schema";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { requireAuth } from "@/lib/auth/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/ui/data-table";
 import { formatCurrency } from "@/lib/utils";
 import { ItemActiveToggle } from "@/components/admin/item-active-toggle";
+import { parsePaginationParams, paginationOffset, totalPages } from "@/lib/db/pagination";
 
-export default async function CatalogPage() {
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAuth();
   const org = await getResolvedTenant();
+  const params = await searchParams;
+  const { page, pageSize } = parsePaginationParams(params);
 
-  const allItems = await withTenant(org.id, async (tx) => {
-    return tx
+  const { data: allItems, total } = await withTenant(org.id, async (tx) => {
+    const [countResult] = await tx
+      .select({ count: count() })
+      .from(items)
+      .where(eq(items.tenantId, org.id));
+
+    const data = await tx
       .select()
       .from(items)
       .where(eq(items.tenantId, org.id))
-      .orderBy(items.sortOrder, items.createdAt);
+      .orderBy(items.sortOrder, items.createdAt)
+      .limit(pageSize)
+      .offset(paginationOffset(page, pageSize));
+
+    return { data, total: countResult?.count ?? 0 };
   });
+
+  const sym = org.currencySymbol ?? "C";
+  const tenant = params.tenant as string | undefined;
+  const baseParams: Record<string, string> = {};
+  if (tenant) baseParams.tenant = tenant;
 
   return (
     <div>
@@ -27,7 +49,7 @@ export default async function CatalogPage() {
         <div>
           <h1 className="text-2xl font-bold">Catalog</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your store items
+            Manage your store items ({total} total)
           </p>
         </div>
         <Link href="/admin/catalog/new">
@@ -35,76 +57,43 @@ export default async function CatalogPage() {
         </Link>
       </div>
 
-      {allItems.length === 0 ? (
-        <div className="rounded-lg border border-border py-12 text-center">
-          <p className="text-muted-foreground">No items yet</p>
-          <Link href="/admin/catalog/new">
-            <Button variant="outline" className="mt-4">
-              Add your first item
-            </Button>
-          </Link>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Price
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Stock
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {allItems.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3 font-medium">{item.name}</td>
-                  <td className="px-4 py-3">
-                    {formatCurrency(item.price, org.currencySymbol ?? "C")}
-                  </td>
-                  <td className="px-4 py-3">
-                    {item.stockQuantity === null ? (
-                      <span className="text-muted-foreground">Unlimited</span>
-                    ) : item.stockQuantity === 0 ? (
-                      <Badge variant="destructive">Out of stock</Badge>
-                    ) : (
-                      item.stockQuantity
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <ItemActiveToggle
-                      itemId={item.id}
-                      isActive={item.isActive}
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/catalog/${item.id}/edit`}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={[
+          { header: "Name", cell: (row) => <span className="font-medium">{row.name as string}</span> },
+          { header: "Price", cell: (row) => formatCurrency(row.price as number, sym) },
+          {
+            header: "Stock",
+            cell: (row) =>
+              row.stockQuantity === null ? (
+                <span className="text-muted-foreground">Unlimited</span>
+              ) : row.stockQuantity === 0 ? (
+                <Badge variant="destructive">Out of stock</Badge>
+              ) : (
+                row.stockQuantity as number
+              ),
+          },
+          {
+            header: "Status",
+            cell: (row) => (
+              <ItemActiveToggle itemId={row.id as string} isActive={row.isActive as boolean} />
+            ),
+          },
+          {
+            header: "Actions",
+            className: "text-right",
+            cell: (row) => (
+              <Link href={`/admin/catalog/${row.id}/edit`} className="text-sm text-primary hover:underline">
+                Edit
+              </Link>
+            ),
+          },
+        ]}
+        data={allItems}
+        emptyMessage="No items yet"
+        currentPage={page}
+        totalPages={totalPages(total, pageSize)}
+        baseParams={baseParams}
+      />
     </div>
   );
 }

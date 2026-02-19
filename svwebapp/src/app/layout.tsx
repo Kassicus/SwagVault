@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
+import { ThemeProvider } from "next-themes";
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -18,9 +20,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${dmSans.variable} font-sans antialiased`}>
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

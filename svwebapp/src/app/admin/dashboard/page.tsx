@@ -1,20 +1,23 @@
-import { eq, and, sql, count } from "drizzle-orm";
+import { eq, and, sql, count, desc } from "drizzle-orm";
 import { withTenant } from "@/lib/db/tenant";
 import {
   organizationMembers,
   balances,
   items,
   orders,
+  users,
 } from "@/lib/db/schema";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { requireAuth } from "@/lib/auth/utils";
 import { StatCard } from "@/components/admin/stat-card";
+import { Badge } from "@/components/ui/badge";
+import { formatRelativeTime } from "@/lib/utils";
 
 export default async function DashboardPage() {
   await requireAuth();
   const org = await getResolvedTenant();
 
-  const stats = await withTenant(org.id, async (tx) => {
+  const { stats, recentOrders, recentMembers } = await withTenant(org.id, async (tx) => {
     const [memberCount] = await tx
       .select({ count: count() })
       .from(organizationMembers)
@@ -42,13 +45,70 @@ export default async function DashboardPage() {
         and(eq(orders.tenantId, org.id), eq(orders.status, "pending"))
       );
 
+    const recentOrders = await tx
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        status: orders.status,
+        totalCost: orders.totalCost,
+        createdAt: orders.createdAt,
+        userName: users.displayName,
+      })
+      .from(orders)
+      .innerJoin(users, eq(orders.userId, users.id))
+      .where(eq(orders.tenantId, org.id))
+      .orderBy(desc(orders.createdAt))
+      .limit(10);
+
+    const recentMembers = await tx
+      .select({
+        id: organizationMembers.id,
+        joinedAt: organizationMembers.joinedAt,
+        userName: users.displayName,
+        userEmail: users.email,
+      })
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(eq(organizationMembers.tenantId, org.id))
+      .orderBy(desc(organizationMembers.joinedAt))
+      .limit(5);
+
     return {
-      members: memberCount?.count ?? 0,
-      currency: currencyInCirculation?.total ?? 0,
-      items: activeItems?.count ?? 0,
-      pendingOrders: pendingOrders?.count ?? 0,
+      stats: {
+        members: memberCount?.count ?? 0,
+        currency: currencyInCirculation?.total ?? 0,
+        items: activeItems?.count ?? 0,
+        pendingOrders: pendingOrders?.count ?? 0,
+      },
+      recentOrders,
+      recentMembers,
     };
   });
+
+  // Merge and sort activity by timestamp
+  type ActivityItem = {
+    type: "order" | "member";
+    timestamp: Date;
+    description: string;
+    detail?: string;
+  };
+
+  const activity: ActivityItem[] = [
+    ...recentOrders.map((o) => ({
+      type: "order" as const,
+      timestamp: o.createdAt,
+      description: `${o.userName} placed order #${o.orderNumber}`,
+      detail: `${org.currencySymbol ?? "C"}${o.totalCost.toLocaleString()} - ${o.status}`,
+    })),
+    ...recentMembers.map((m) => ({
+      type: "member" as const,
+      timestamp: m.joinedAt,
+      description: `${m.userName} joined`,
+      detail: m.userEmail,
+    })),
+  ]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 10);
 
   return (
     <div>
@@ -96,6 +156,38 @@ export default async function DashboardPage() {
             </svg>
           }
         />
+      </div>
+
+      {/* Activity Feed */}
+      <div className="mt-8">
+        <h2 className="mb-4 text-lg font-semibold">Recent Activity</h2>
+        {activity.length === 0 ? (
+          <div className="rounded-lg border border-border py-8 text-center text-sm text-muted-foreground">
+            No activity yet
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {activity.map((item, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`h-2 w-2 rounded-full ${
+                      item.type === "order" ? "bg-primary" : "bg-success"
+                    }`}
+                  />
+                  <span className="text-sm">{item.description}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  {item.detail && <span>{item.detail}</span>}
+                  <span>{formatRelativeTime(item.timestamp)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #f8fafc;
@@ -24,30 +25,28 @@
   --warning: #f59e0b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0e1a;
-    --foreground: #f8fafc;
-    --primary: #c9a84c;
-    --primary-foreground: #0a0e1a;
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-    --accent: #c9a84c;
-    --accent-foreground: #0a0e1a;
-    --destructive: #ef4444;
-    --destructive-foreground: #ffffff;
-    --border: #1e293b;
-    --input: #1e293b;
-    --ring: #c9a84c;
-    --card: #111827;
-    --card-foreground: #f8fafc;
-    --popover: #111827;
-    --popover-foreground: #f8fafc;
-    --success: #22c55e;
-    --warning: #f59e0b;
-  }
+.dark {
+  --background: #0a0e1a;
+  --foreground: #f8fafc;
+  --primary: #c9a84c;
+  --primary-foreground: #0a0e1a;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #c9a84c;
+  --accent-foreground: #0a0e1a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #c9a84c;
+  --card: #111827;
+  --card-foreground: #f8fafc;
+  --popover: #111827;
+  --popover-foreground: #f8fafc;
+  --success: #22c55e;
+  --warning: #f59e0b;
 }
 
 @theme inline {

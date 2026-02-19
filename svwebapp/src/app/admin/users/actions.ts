@@ -13,6 +13,7 @@ import { requireAuth, hashPassword } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { sendEmail } from "@/lib/email/client";
 import { inviteEmailHtml } from "@/lib/email/templates/invite";
+import { checkPlanLimit } from "@/lib/stripe/enforce";
 
 export async function inviteUser(formData: FormData) {
   const currentUser = await requireAuth();
@@ -22,6 +23,15 @@ export async function inviteUser(formData: FormData) {
   const role = (formData.get("role") as string) ?? "member";
 
   if (!email) return { success: false, error: "Email is required" };
+
+  // Check plan member limit
+  const memberCheck = await checkPlanLimit(org.id, "members");
+  if (!memberCheck.allowed) {
+    return {
+      success: false,
+      error: `Member limit reached (${memberCheck.current}/${memberCheck.limit}). Upgrade your plan to add more members.`,
+    };
+  }
 
   try {
     // Check if user already exists

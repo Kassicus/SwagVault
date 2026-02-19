@@ -1,14 +1,20 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { withTenant } from "@/lib/db/tenant";
-import { items } from "@/lib/db/schema";
+import { items, categories } from "@/lib/db/schema";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { getOrgSlug } from "@/lib/tenant/context";
 import { getCurrentUser } from "@/lib/auth/utils";
 import { ItemCard } from "./item-card";
 import { getSignedUrl } from "@/lib/storage/supabase";
+import { CatalogSearch } from "./catalog-search";
 
-export async function StoreCatalog() {
+interface StoreCatalogProps {
+  searchParams: Record<string, string | string[] | undefined>;
+}
+
+export async function StoreCatalog({ searchParams }: StoreCatalogProps) {
   const user = await getCurrentUser();
   if (!user) {
     const slug = await getOrgSlug();
@@ -17,11 +23,40 @@ export async function StoreCatalog() {
 
   const org = await getResolvedTenant();
 
+  const searchQuery = (searchParams.q as string) ?? "";
+  const categorySlug = (searchParams.category as string) ?? "";
+
+  // Fetch categories for filter pills
+  const allCategories = await withTenant(org.id, async (tx) => {
+    return tx
+      .select({ id: categories.id, name: categories.name, slug: categories.slug })
+      .from(categories)
+      .where(eq(categories.tenantId, org.id))
+      .orderBy(categories.sortOrder);
+  });
+
+  // Build item query with filters
   const allItems = await withTenant(org.id, async (tx) => {
+    const conditions = [
+      eq(items.tenantId, org.id),
+      eq(items.isActive, true),
+    ];
+
+    if (searchQuery) {
+      conditions.push(ilike(items.name, `%${searchQuery}%`));
+    }
+
+    if (categorySlug) {
+      const cat = allCategories.find((c) => c.slug === categorySlug);
+      if (cat) {
+        conditions.push(eq(items.categoryId, cat.id));
+      }
+    }
+
     return tx
       .select()
       .from(items)
-      .where(and(eq(items.tenantId, org.id), eq(items.isActive, true)))
+      .where(and(...conditions))
       .orderBy(items.sortOrder, items.createdAt);
   });
 
@@ -40,13 +75,27 @@ export async function StoreCatalog() {
     })
   );
 
+  const tenant = searchParams.tenant as string | undefined;
+  const baseQs = tenant ? `tenant=${tenant}` : "";
+
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold">The Vault</h1>
 
+      <CatalogSearch
+        defaultQuery={searchQuery}
+        categories={allCategories}
+        activeCategory={categorySlug}
+        baseQs={baseQs}
+      />
+
       {itemsWithUrls.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground">
-          <p>No items available yet. Check back soon!</p>
+          <p>
+            {searchQuery || categorySlug
+              ? "No items match your search."
+              : "No items available yet. Check back soon!"}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

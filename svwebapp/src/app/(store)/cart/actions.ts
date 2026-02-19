@@ -8,6 +8,8 @@ import { debitUser } from "@/lib/currency/engine";
 import { requireAuth } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { OutOfStockError } from "@/lib/errors";
+import { sendEmail } from "@/lib/email/client";
+import { orderConfirmationHtml } from "@/lib/email/templates/order-confirmation";
 
 interface CartLineItem {
   itemId: string;
@@ -123,6 +125,23 @@ export async function placeOrder(lineItems: CartLineItem[]) {
       user.id,
       { type: "order", id: result.orderId }
     );
+
+    // Send order confirmation email (non-blocking)
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: `Order #${result.orderNumber} confirmed - ${org.name}`,
+        html: orderConfirmationHtml({
+          orgName: org.name,
+          orderNumber: result.orderNumber,
+          totalCost: result.totalCost,
+          currencySymbol: org.currencySymbol ?? "C",
+          itemCount: lineItems.length,
+        }),
+      });
+    } catch {
+      // Email failure shouldn't block the order
+    }
 
     revalidatePath("/orders");
     revalidatePath("/");

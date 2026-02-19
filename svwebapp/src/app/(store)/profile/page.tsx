@@ -1,21 +1,39 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count } from "drizzle-orm";
 import { withTenant } from "@/lib/db/tenant";
 import { balances, transactions } from "@/lib/db/schema";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { requireAuth } from "@/lib/auth/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
+import { Pagination } from "@/components/ui/pagination";
+import { parsePaginationParams, paginationOffset, totalPages } from "@/lib/db/pagination";
+import { ProfileEditForm } from "./profile-edit-form";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireAuth();
   const org = await getResolvedTenant();
+  const params = await searchParams;
+  const { page, pageSize } = parsePaginationParams(params);
 
-  const { balance, recentTx } = await withTenant(org.id, async (tx) => {
+  const { balance, recentTx, totalTx } = await withTenant(org.id, async (tx) => {
     const [bal] = await tx
       .select({ balance: balances.balance })
       .from(balances)
       .where(and(eq(balances.tenantId, org.id), eq(balances.userId, user.id)));
+
+    const [txCount] = await tx
+      .select({ count: count() })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.tenantId, org.id),
+          eq(transactions.userId, user.id)
+        )
+      );
 
     const recentTx = await tx
       .select()
@@ -27,12 +45,20 @@ export default async function ProfilePage() {
         )
       )
       .orderBy(desc(transactions.createdAt))
-      .limit(20);
+      .limit(pageSize)
+      .offset(paginationOffset(page, pageSize));
 
-    return { balance: bal?.balance ?? 0, recentTx };
+    return {
+      balance: bal?.balance ?? 0,
+      recentTx,
+      totalTx: txCount?.count ?? 0,
+    };
   });
 
   const sym = org.currencySymbol ?? "C";
+  const tenant = params.tenant as string | undefined;
+  const baseParams: Record<string, string> = {};
+  if (tenant) baseParams.tenant = tenant;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -41,8 +67,8 @@ export default async function ProfilePage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Display Name</p>
-            <p className="text-lg font-medium">{user.displayName}</p>
+            <p className="text-sm text-muted-foreground">Email</p>
+            <p className="text-sm font-medium">{user.email}</p>
           </CardContent>
         </Card>
         <Card>
@@ -55,6 +81,16 @@ export default async function ProfilePage() {
         </Card>
       </div>
 
+      {/* Edit Profile */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Edit Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProfileEditForm currentName={user.displayName} />
+        </CardContent>
+      </Card>
+
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
@@ -65,42 +101,49 @@ export default async function ProfilePage() {
               No transactions yet
             </p>
           ) : (
-            <div className="divide-y divide-border">
-              {recentTx.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{tx.reason}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(tx.createdAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+            <>
+              <div className="divide-y divide-border">
+                {recentTx.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{tx.reason}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(tx.createdAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={`font-medium ${
+                          tx.type === "credit"
+                            ? "text-success"
+                            : "text-destructive"
+                        }`}
+                      >
+                        {tx.type === "credit" ? "+" : "-"}
+                        {formatCurrency(tx.amount, sym)}
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        Balance: {formatCurrency(tx.balanceAfter, sym)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span
-                      className={`font-medium ${
-                        tx.type === "credit"
-                          ? "text-success"
-                          : "text-destructive"
-                      }`}
-                    >
-                      {tx.type === "credit" ? "+" : "-"}
-                      {formatCurrency(tx.amount, sym)}
-                    </span>
-                    <p className="text-xs text-muted-foreground">
-                      Balance: {formatCurrency(tx.balanceAfter, sym)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages(totalTx, pageSize)}
+                baseParams={baseParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>

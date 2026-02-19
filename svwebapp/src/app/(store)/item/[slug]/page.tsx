@@ -7,6 +7,8 @@ import { formatCurrency } from "@/lib/utils";
 import { getSignedUrl } from "@/lib/storage/supabase";
 import { Badge } from "@/components/ui/badge";
 import { AddToCartButton } from "@/components/store/add-to-cart-button";
+import { ImageGallery } from "@/components/store/image-gallery";
+import { Markdown } from "@/components/ui/markdown";
 
 export default async function ItemDetailPage({
   params,
@@ -32,36 +34,29 @@ export default async function ItemDetailPage({
 
   if (!item) notFound();
 
-  let imageUrl: string | null = null;
+  // Resolve ALL image URLs for gallery
   const urls = item.imageUrls as string[] | null;
+  const resolvedImages: { url: string; alt: string }[] = [];
   if (urls && urls.length > 0) {
-    try {
-      imageUrl = await getSignedUrl(urls[0]);
-    } catch {
-      // Ignore
+    for (const path of urls) {
+      try {
+        const signedUrl = await getSignedUrl(path);
+        if (signedUrl) {
+          resolvedImages.push({ url: signedUrl, alt: item.name });
+        }
+      } catch {
+        // Skip failed URLs
+      }
     }
   }
 
   const outOfStock = item.stockQuantity !== null && item.stockQuantity === 0;
+  const firstImageUrl = resolvedImages.length > 0 ? resolvedImages[0].url : null;
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
-      {/* Image */}
-      <div className="aspect-square overflow-hidden rounded-lg bg-muted">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={item.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <svg className="h-24 w-24" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75a1.5 1.5 0 00-1.5 1.5v13.5a1.5 1.5 0 001.5 1.5z" />
-            </svg>
-          </div>
-        )}
-      </div>
+      {/* Image Gallery */}
+      <ImageGallery images={resolvedImages} />
 
       {/* Details */}
       <div>
@@ -78,8 +73,8 @@ export default async function ItemDetailPage({
         </div>
 
         {item.description && (
-          <div className="mt-6 text-muted-foreground">
-            <p className="whitespace-pre-wrap">{item.description}</p>
+          <div className="mt-6">
+            <Markdown content={item.description} />
           </div>
         )}
 
@@ -90,7 +85,7 @@ export default async function ItemDetailPage({
               name: item.name,
               slug: item.slug,
               price: item.price,
-              imageUrl: imageUrl,
+              imageUrl: firstImageUrl,
               stockQuantity: item.stockQuantity,
             }}
             disabled={outOfStock}

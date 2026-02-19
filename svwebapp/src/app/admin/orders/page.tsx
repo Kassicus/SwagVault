@@ -1,11 +1,13 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc, count } from "drizzle-orm";
 import Link from "next/link";
 import { withTenant } from "@/lib/db/tenant";
 import { orders, users } from "@/lib/db/schema";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { requireAuth } from "@/lib/auth/utils";
 import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/ui/data-table";
 import { formatCurrency } from "@/lib/utils";
+import { parsePaginationParams, paginationOffset, totalPages } from "@/lib/db/pagination";
 
 const statusVariants = {
   pending: "warning",
@@ -14,12 +16,33 @@ const statusVariants = {
   cancelled: "destructive",
 } as const;
 
-export default async function AdminOrdersPage() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sortMap: Record<string, any> = {
+  date: orders.createdAt,
+  total: orders.totalCost,
+  order: orders.orderNumber,
+};
+
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAuth();
   const org = await getResolvedTenant();
+  const params = await searchParams;
+  const { page, pageSize, sort, order } = parsePaginationParams(params);
 
-  const allOrders = await withTenant(org.id, async (tx) => {
-    return tx
+  const { data: allOrders, total } = await withTenant(org.id, async (tx) => {
+    const sortCol = sortMap[sort ?? ""] ?? orders.createdAt;
+    const orderFn = order === "asc" ? asc : desc;
+
+    const [countResult] = await tx
+      .select({ count: count() })
+      .from(orders)
+      .where(eq(orders.tenantId, org.id));
+
+    const data = await tx
       .select({
         id: orders.id,
         orderNumber: orders.orderNumber,
@@ -32,83 +55,80 @@ export default async function AdminOrdersPage() {
       .from(orders)
       .innerJoin(users, eq(orders.userId, users.id))
       .where(eq(orders.tenantId, org.id))
-      .orderBy(desc(orders.createdAt));
+      .orderBy(orderFn(sortCol))
+      .limit(pageSize)
+      .offset(paginationOffset(page, pageSize));
+
+    return { data, total: countResult?.count ?? 0 };
   });
+
+  const sym = org.currencySymbol ?? "C";
+  const tenant = params.tenant as string | undefined;
+  const baseParams: Record<string, string> = {};
+  if (tenant) baseParams.tenant = tenant;
+  if (sort) baseParams.sort = sort;
+  if (order) baseParams.order = order;
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Orders</h1>
         <p className="text-sm text-muted-foreground">
-          Manage order fulfillment
+          Manage order fulfillment ({total} total)
         </p>
       </div>
 
-      {allOrders.length === 0 ? (
-        <div className="rounded-lg border border-border py-12 text-center text-muted-foreground">
-          No orders yet
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Order
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Customer
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Total
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {allOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      #{order.orderNumber}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium">{order.userName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.userEmail}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {formatCurrency(order.totalCost, org.currencySymbol ?? "C")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={statusVariants[order.status]}>
-                      {order.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {new Date(order.createdAt).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={[
+          {
+            header: "Order",
+            sortKey: "order",
+            cell: (row) => (
+              <Link href={`/admin/orders/${row.id}`} className="font-medium text-primary hover:underline">
+                #{row.orderNumber}
+              </Link>
+            ),
+          },
+          {
+            header: "Customer",
+            cell: (row) => (
+              <div>
+                <p className="font-medium">{row.userName}</p>
+                <p className="text-xs text-muted-foreground">{row.userEmail}</p>
+              </div>
+            ),
+          },
+          {
+            header: "Total",
+            sortKey: "total",
+            cell: (row) => formatCurrency(row.totalCost as number, sym),
+          },
+          {
+            header: "Status",
+            cell: (row) => (
+              <Badge variant={statusVariants[row.status as keyof typeof statusVariants]}>
+                {row.status as string}
+              </Badge>
+            ),
+          },
+          {
+            header: "Date",
+            sortKey: "date",
+            cell: (row) => (
+              <span className="text-muted-foreground">
+                {new Date(row.createdAt as unknown as string).toLocaleDateString()}
+              </span>
+            ),
+          },
+        ]}
+        data={allOrders}
+        emptyMessage="No orders yet"
+        currentPage={page}
+        totalPages={totalPages(total, pageSize)}
+        currentSort={sort}
+        currentOrder={order}
+        baseParams={baseParams}
+      />
     </div>
   );
 }

@@ -30,3 +30,33 @@ export async function updateOrgSettings(formData: FormData) {
   revalidatePath("/admin/settings");
   return { success: true };
 }
+
+export async function updateSsoSettings(formData: FormData) {
+  await requireAuth();
+  const org = await getResolvedTenant();
+
+  const ssoTenantId = (formData.get("ssoTenantId") as string)?.trim();
+
+  if (ssoTenantId) {
+    await db
+      .update(organizations)
+      .set({
+        ssoProvider: "microsoft",
+        ssoTenantId,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, org.id));
+  } else {
+    await db
+      .update(organizations)
+      .set({
+        ssoProvider: null,
+        ssoTenantId: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, org.id));
+  }
+
+  revalidatePath("/admin/settings");
+  return { success: true };
+}

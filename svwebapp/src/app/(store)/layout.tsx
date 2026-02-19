@@ -8,6 +8,7 @@ import { withTenant } from "@/lib/db/tenant";
 import { balances, organizationMembers } from "@/lib/db/schema";
 import { BalancePill } from "@/components/store/balance-pill";
 import { Logo } from "@/components/shared/logo";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 export default async function StoreLayout({
   children,
@@ -99,6 +100,7 @@ export default async function StoreLayout({
                 Admin
               </Link>
             )}
+            <ThemeToggle />
             <Link
               href={`/profile${qs}`}
               className="text-sm text-muted-foreground hover:text-foreground"

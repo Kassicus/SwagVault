@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { users, organizationMembers, organizations } from "@/lib/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
+import { signIn } from "@/lib/auth/config";
 
 export async function loginAction(formData: {
   email: string;
@@ -50,4 +51,10 @@ export async function loginAction(formData: {
     orgSlug: membership[0]?.slug ?? undefined,
     role: membership[0]?.role ?? undefined,
   };
+}
+
+export async function ssoLoginAction(formData: FormData): Promise<void> {
+  const tenant = formData.get("tenant") as string;
+  const redirectTo = tenant ? `/?tenant=${tenant}` : "/";
+  await signIn("microsoft-entra-id", { redirectTo });
 }

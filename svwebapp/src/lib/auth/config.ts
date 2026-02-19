@@ -1,9 +1,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { verifyPassword } from "./password";
+import { findOrCreateSsoUser, linkUserToOrg, findOrgBySsoTenant } from "./sso";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
@@ -35,14 +37,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    ...(process.env.MICROSOFT_CLIENT_ID
+      ? [
+          MicrosoftEntraID({
+            clientId: process.env.MICROSOFT_CLIENT_ID,
+            clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
+          }),
+        ]
+      : []),
   ],
   session: {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "microsoft-entra-id" && user.email) {
+        const ssoUser = await findOrCreateSsoUser({
+          email: user.email,
+          name: user.name ?? user.email.split("@")[0],
+          image: user.image,
+        });
+
+        // If Microsoft provides a tenant ID, try linking to an org
+        const tenantId = (profile as Record<string, unknown>)?.tid as string | undefined;
+        if (tenantId) {
+          const org = await findOrgBySsoTenant(tenantId);
+          if (org) {
+            await linkUserToOrg(ssoUser.id, org.id);
+          }
+        }
+
+        user.id = ssoUser.id;
+        return true;
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
+      }
+      if (account?.provider === "microsoft-entra-id") {
+        token.provider = "microsoft";
       }
       return token;
     },

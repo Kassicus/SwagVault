@@ -12,7 +12,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { loginAction } from "./actions";
+import { loginAction, ssoLoginAction } from "./actions";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
@@ -99,6 +99,29 @@ export default function LoginPage() {
             Sign in
           </Button>
         </form>
+
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">Or</span>
+          </div>
+        </div>
+
+        <form action={ssoLoginAction}>
+          <input type="hidden" name="tenant" value={tenant ?? ""} />
+          <Button type="submit" variant="outline" className="w-full">
+            <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21" fill="none">
+              <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+              <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+              <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+              <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+            </svg>
+            Sign in with Microsoft
+          </Button>
+        </form>
+
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Don&apos;t have an organization?{" "}
           <Link href="/signup" className="text-primary hover:underline">

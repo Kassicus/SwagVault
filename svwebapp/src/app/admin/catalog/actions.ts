@@ -8,10 +8,20 @@ import { requireAuth } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { createItemSchema, updateItemSchema } from "@/lib/validators/items";
 import { slugify } from "@/lib/utils";
+import { checkPlanLimit } from "@/lib/stripe/enforce";
 
 export async function createItem(formData: FormData) {
   const user = await requireAuth();
   const org = await getResolvedTenant();
+
+  // Check plan item limit
+  const itemCheck = await checkPlanLimit(org.id, "items");
+  if (!itemCheck.allowed) {
+    return {
+      success: false,
+      error: `Item limit reached (${itemCheck.current}/${itemCheck.limit}). Upgrade your plan to add more items.`,
+    };
+  }
 
   const raw = {
     name: formData.get("name") as string,

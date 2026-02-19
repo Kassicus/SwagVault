@@ -7,6 +7,10 @@ import { orders, orderItems, items } from "@/lib/db/schema";
 import { creditUser } from "@/lib/currency/engine";
 import { requireAuth } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { sendEmail } from "@/lib/email/client";
+import { orderStatusUpdateHtml } from "@/lib/email/templates/order-status-update";
 
 export async function updateOrderStatus(
   orderId: string,
@@ -102,6 +106,32 @@ export async function updateOrderStatus(
           { type: "order_refund", id: orderId }
         );
       }
+    }
+
+    // Send status update email (non-blocking)
+    try {
+      const [order] = await withTenant(org.id, async (tx) => {
+        return tx.select().from(orders).where(eq(orders.id, orderId));
+      });
+      if (order) {
+        const [orderUser] = await db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, order.userId));
+        if (orderUser) {
+          await sendEmail({
+            to: orderUser.email,
+            subject: `Order #${order.orderNumber} ${newStatus} - ${org.name}`,
+            html: orderStatusUpdateHtml({
+              orgName: org.name,
+              orderNumber: order.orderNumber,
+              newStatus,
+            }),
+          });
+        }
+      }
+    } catch {
+      // Email failure shouldn't block status update
     }
 
     revalidatePath("/admin/orders");

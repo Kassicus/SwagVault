@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { updateOrgSettings } from "./actions";
+import { updateOrgSettings, updateSsoSettings } from "./actions";
 
 export default function SettingsPage() {
   const [isPending, startTransition] = useTransition();
@@ -92,6 +92,60 @@ export default function SettingsPage() {
           Save Settings
         </Button>
       </form>
+
+      {/* SSO Configuration (Enterprise only) */}
+      <SsoConfigCard />
     </div>
+  );
+}
+
+function SsoConfigCard() {
+  const [isPending, startTransition] = useTransition();
+  const [ssoSuccess, setSsoSuccess] = useState(false);
+
+  function handleSsoSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSsoSuccess(false);
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await updateSsoSettings(formData);
+      if (result.success) setSsoSuccess(true);
+    });
+  }
+
+  useEffect(() => {
+    if (ssoSuccess) {
+      const timer = setTimeout(() => setSsoSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [ssoSuccess]);
+
+  return (
+    <form onSubmit={handleSsoSubmit} className="mt-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Single Sign-On (SSO)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {ssoSuccess && (
+            <div className="rounded-md bg-success/10 p-3 text-sm text-success">
+              SSO settings saved!
+            </div>
+          )}
+          <p className="text-sm text-muted-foreground">
+            Configure Microsoft Entra ID for your organization. Enterprise plan required.
+          </p>
+          <Input
+            id="ssoTenantId"
+            name="ssoTenantId"
+            label="Microsoft Tenant ID"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          />
+          <Button type="submit" loading={isPending}>
+            Save SSO Settings
+          </Button>
+        </CardContent>
+      </Card>
+    </form>
   );
 }

@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 interface SidebarProps {
   orgName: string;
@@ -17,6 +18,7 @@ const navItems = [
   { label: "Orders", href: "/admin/orders", icon: "clipboard" },
   { label: "Users", href: "/admin/users", icon: "users" },
   { label: "Currency", href: "/admin/currency", icon: "coins" },
+  { label: "Billing", href: "/admin/billing", icon: "credit-card" },
   { label: "Settings", href: "/admin/settings", icon: "settings" },
 ];
 
@@ -44,6 +46,11 @@ const icons: Record<string, React.ReactNode> = {
   coins: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  "credit-card": (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
     </svg>
   ),
   settings: (
@@ -121,8 +128,8 @@ export function AdminSidebar({ orgName, orgSlug }: SidebarProps) {
             })}
           </nav>
 
-          {/* Store link */}
-          <div className="border-t border-border px-3 py-4">
+          {/* Footer */}
+          <div className="border-t border-border px-3 py-4 space-y-1">
             <Link
               href={withTenant("/")}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -132,6 +139,10 @@ export function AdminSidebar({ orgName, orgSlug }: SidebarProps) {
               </svg>
               View Store
             </Link>
+            <div className="flex items-center justify-between px-3">
+              <span className="text-xs text-muted-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </aside>
