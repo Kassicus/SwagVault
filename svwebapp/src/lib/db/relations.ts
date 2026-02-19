@@ -11,6 +11,9 @@ import {
   transactions,
   apiKeys,
   webhookEndpoints,
+  webhookDeliveries,
+  auditLogs,
+  integrations,
 } from "./schema";
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -22,6 +25,9 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   transactions: many(transactions),
   apiKeys: many(apiKeys),
   webhookEndpoints: many(webhookEndpoints),
+  webhookDeliveries: many(webhookDeliveries),
+  auditLogs: many(auditLogs),
+  integrations: many(integrations),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -130,10 +136,39 @@ export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
 
 export const webhookEndpointsRelations = relations(
   webhookEndpoints,
-  ({ one }) => ({
+  ({ one, many }) => ({
     organization: one(organizations, {
       fields: [webhookEndpoints.tenantId],
       references: [organizations.id],
     }),
+    deliveries: many(webhookDeliveries),
   })
 );
+
+export const webhookDeliveriesRelations = relations(
+  webhookDeliveries,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [webhookDeliveries.tenantId],
+      references: [organizations.id],
+    }),
+    endpoint: one(webhookEndpoints, {
+      fields: [webhookDeliveries.endpointId],
+      references: [webhookEndpoints.id],
+    }),
+  })
+);
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [auditLogs.tenantId],
+    references: [organizations.id],
+  }),
+}));
+
+export const integrationsRelations = relations(integrations, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [integrations.tenantId],
+    references: [organizations.id],
+  }),
+}));

@@ -10,6 +10,9 @@ import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { OutOfStockError } from "@/lib/errors";
 import { sendEmail } from "@/lib/email/client";
 import { orderConfirmationHtml } from "@/lib/email/templates/order-confirmation";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
+import { dispatchIntegrationNotifications } from "@/lib/integrations/dispatch";
 
 interface CartLineItem {
   itemId: string;
@@ -125,6 +128,11 @@ export async function placeOrder(lineItems: CartLineItem[]) {
       user.id,
       { type: "order", id: result.orderId }
     );
+
+    // Dispatch webhook + integrations (non-blocking)
+    const eventPayload = { orderId: result.orderId, orderNumber: result.orderNumber, userId: user.id, totalCost: result.totalCost };
+    dispatchWebhookEvent(org.id, WEBHOOK_EVENTS.ORDER_CREATED, eventPayload);
+    dispatchIntegrationNotifications(org.id, WEBHOOK_EVENTS.ORDER_CREATED, eventPayload);
 
     // Send order confirmation email (non-blocking)
     try {

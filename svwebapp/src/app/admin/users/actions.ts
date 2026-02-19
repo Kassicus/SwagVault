@@ -14,6 +14,10 @@ import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { sendEmail } from "@/lib/email/client";
 import { inviteEmailHtml } from "@/lib/email/templates/invite";
 import { checkPlanLimit } from "@/lib/stripe/enforce";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
+import { logAuditEvent } from "@/lib/audit/log";
+import { dispatchIntegrationNotifications } from "@/lib/integrations/dispatch";
 
 export async function inviteUser(formData: FormData) {
   const currentUser = await requireAuth();
@@ -86,6 +90,11 @@ export async function inviteUser(formData: FormData) {
       });
     });
 
+    // Audit + webhook + integrations (non-blocking)
+    logAuditEvent({ tenantId: org.id, userId: currentUser.id, action: "member.invited", resourceType: "member", resourceId: existingUser.id, metadata: { email, role } });
+    dispatchWebhookEvent(org.id, WEBHOOK_EVENTS.MEMBER_JOINED, { userId: existingUser.id, email, role });
+    dispatchIntegrationNotifications(org.id, WEBHOOK_EVENTS.MEMBER_JOINED, { userId: existingUser.id, email, role });
+
     // Send invite email
     const domain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? "getswagvault.com";
     const inviteUrl = `https://${org.slug}.${domain}/register?token=invite`;
@@ -118,7 +127,7 @@ export async function updateMemberRole(
   memberId: string,
   role: "admin" | "manager" | "member"
 ) {
-  await requireAuth();
+  const user = await requireAuth();
   const org = await getResolvedTenant();
 
   await withTenant(org.id, async (tx) => {
@@ -132,6 +141,8 @@ export async function updateMemberRole(
         )
       );
   });
+
+  logAuditEvent({ tenantId: org.id, userId: user.id, action: "member.role_changed", resourceType: "member", resourceId: memberId, metadata: { role } });
 
   revalidatePath("/admin/users");
   return { success: true };

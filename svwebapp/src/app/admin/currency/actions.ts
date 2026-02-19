@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { creditUser, bulkDistribute } from "@/lib/currency/engine";
 import { requireAuth } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
+import { logAuditEvent } from "@/lib/audit/log";
+import { dispatchIntegrationNotifications } from "@/lib/integrations/dispatch";
 
 export async function distributeCurrency(formData: FormData) {
   const user = await requireAuth();
@@ -28,6 +32,14 @@ export async function distributeCurrency(formData: FormData) {
       await creditUser(org.id, userIds[0], amount, reason, user.id);
     } else {
       await bulkDistribute(org.id, userIds, amount, reason, user.id);
+    }
+
+    // Audit + webhook + integrations (non-blocking)
+    logAuditEvent({ tenantId: org.id, userId: user.id, action: "currency.distributed", resourceType: "currency", metadata: { userIds, amount, reason } });
+    for (const uid of userIds) {
+      const eventPayload = { userId: uid, amount, reason };
+      dispatchWebhookEvent(org.id, WEBHOOK_EVENTS.USER_CREDITED, eventPayload);
+      dispatchIntegrationNotifications(org.id, WEBHOOK_EVENTS.USER_CREDITED, eventPayload);
     }
 
     revalidatePath("/admin/currency");

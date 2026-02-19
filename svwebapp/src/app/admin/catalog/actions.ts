@@ -9,6 +9,10 @@ import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { createItemSchema, updateItemSchema } from "@/lib/validators/items";
 import { slugify } from "@/lib/utils";
 import { checkPlanLimit } from "@/lib/stripe/enforce";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
+import { logAuditEvent } from "@/lib/audit/log";
+import { dispatchIntegrationNotifications } from "@/lib/integrations/dispatch";
 
 export async function createItem(formData: FormData) {
   const user = await requireAuth();
@@ -55,13 +59,18 @@ export async function createItem(formData: FormData) {
     return item;
   });
 
+  // Audit + webhook + integrations (non-blocking)
+  logAuditEvent({ tenantId: org.id, userId: user.id, action: "item.created", resourceType: "item", resourceId: result.id });
+  dispatchWebhookEvent(org.id, WEBHOOK_EVENTS.ITEM_CREATED, { itemId: result.id, slug: result.slug });
+  dispatchIntegrationNotifications(org.id, WEBHOOK_EVENTS.ITEM_CREATED, { itemId: result.id, slug: result.slug });
+
   revalidatePath("/admin/catalog");
   revalidatePath("/");
   return { success: true, item: result };
 }
 
 export async function updateItem(itemId: string, formData: FormData) {
-  await requireAuth();
+  const user = await requireAuth();
   const org = await getResolvedTenant();
 
   const raw: Record<string, unknown> = {};
@@ -102,6 +111,11 @@ export async function updateItem(itemId: string, formData: FormData) {
       .where(and(eq(items.id, itemId), eq(items.tenantId, org.id)));
   });
 
+  // Audit + webhook + integrations (non-blocking)
+  logAuditEvent({ tenantId: org.id, userId: user.id, action: "item.updated", resourceType: "item", resourceId: itemId });
+  dispatchWebhookEvent(org.id, WEBHOOK_EVENTS.ITEM_UPDATED, { itemId });
+  dispatchIntegrationNotifications(org.id, WEBHOOK_EVENTS.ITEM_UPDATED, { itemId });
+
   revalidatePath("/admin/catalog");
   revalidatePath("/");
   return { success: true };
@@ -124,7 +138,7 @@ export async function toggleItemActive(itemId: string, isActive: boolean) {
 }
 
 export async function deleteItem(itemId: string) {
-  await requireAuth();
+  const user = await requireAuth();
   const org = await getResolvedTenant();
 
   await withTenant(org.id, async (tx) => {
@@ -132,6 +146,8 @@ export async function deleteItem(itemId: string) {
       .delete(items)
       .where(and(eq(items.id, itemId), eq(items.tenantId, org.id)));
   });
+
+  logAuditEvent({ tenantId: org.id, userId: user.id, action: "item.deleted", resourceType: "item", resourceId: itemId });
 
   revalidatePath("/admin/catalog");
   revalidatePath("/");

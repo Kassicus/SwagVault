@@ -1,10 +1,44 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { updateOrgSettings, updateSsoSettings } from "./actions";
+
+const settingsNav = [
+  {
+    title: "API Keys",
+    description: "Manage programmatic API access",
+    href: "/admin/settings/api-keys",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Webhooks",
+    description: "Configure event notifications",
+    href: "/admin/settings/webhooks",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+      </svg>
+    ),
+  },
+  {
+    title: "Integrations",
+    description: "Slack and Teams notifications",
+    href: "/admin/settings/integrations",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.06a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.464 8.97" />
+      </svg>
+    ),
+  },
+];
 
 export default function SettingsPage() {
   const [isPending, startTransition] = useTransition();
@@ -37,6 +71,23 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground">
           Manage your organization settings
         </p>
+      </div>
+
+      {/* Navigation cards */}
+      <div className="mb-8 grid grid-cols-3 gap-3">
+        {settingsNav.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="group rounded-lg border border-border p-4 transition-colors hover:border-primary/50 hover:bg-muted/30"
+          >
+            <div className="mb-2 text-muted-foreground group-hover:text-primary">
+              {item.icon}
+            </div>
+            <p className="text-sm font-medium">{item.title}</p>
+            <p className="text-xs text-muted-foreground">{item.description}</p>
+          </Link>
+        ))}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

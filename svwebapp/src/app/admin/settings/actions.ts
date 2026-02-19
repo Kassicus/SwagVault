@@ -6,9 +6,10 @@ import { db } from "@/lib/db";
 import { organizations } from "@/lib/db/schema";
 import { requireAuth } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
+import { logAuditEvent } from "@/lib/audit/log";
 
 export async function updateOrgSettings(formData: FormData) {
-  await requireAuth();
+  const user = await requireAuth();
   const org = await getResolvedTenant();
 
   const name = formData.get("name") as string;
@@ -26,6 +27,8 @@ export async function updateOrgSettings(formData: FormData) {
     .update(organizations)
     .set(updates)
     .where(eq(organizations.id, org.id));
+
+  logAuditEvent({ tenantId: org.id, userId: user.id, action: "settings.updated", resourceType: "organization", resourceId: org.id });
 
   revalidatePath("/admin/settings");
   return { success: true };

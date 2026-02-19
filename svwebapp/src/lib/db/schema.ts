@@ -247,6 +247,63 @@ export const webhookEndpoints = pgTable("webhook_endpoints", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── Webhook Deliveries ─────────────────────────────────────────
+
+export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
+  "pending",
+  "success",
+  "failed",
+]);
+
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  endpointId: uuid("endpoint_id")
+    .notNull()
+    .references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+  event: varchar("event", { length: 100 }).notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  status: webhookDeliveryStatusEnum("status").default("pending").notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+  responseStatus: integer("response_status"),
+  responseBody: text("response_body"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── Audit Logs ─────────────────────────────────────────────────
+
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }),
+  action: varchar("action", { length: 100 }).notNull(),
+  resourceType: varchar("resource_type", { length: 50 }).notNull(),
+  resourceId: varchar("resource_id", { length: 255 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── Integrations ───────────────────────────────────────────────
+
+export const integrations = pgTable("integrations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 20 }).notNull(), // "slack" | "teams"
+  config: jsonb("config").$type<{ webhookUrl: string }>().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── Type Exports ────────────────────────────────────────────────
 
 export type Organization = typeof organizations.$inferSelect;
@@ -261,3 +318,6 @@ export type Category = typeof categories.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type Integration = typeof integrations.$inferSelect;

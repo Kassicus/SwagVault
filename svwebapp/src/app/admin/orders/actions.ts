@@ -11,6 +11,10 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email/client";
 import { orderStatusUpdateHtml } from "@/lib/email/templates/order-status-update";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
+import { logAuditEvent } from "@/lib/audit/log";
+import { dispatchIntegrationNotifications } from "@/lib/integrations/dispatch";
 
 export async function updateOrderStatus(
   orderId: string,
@@ -107,6 +111,11 @@ export async function updateOrderStatus(
         );
       }
     }
+
+    // Audit + webhook + integrations (non-blocking)
+    logAuditEvent({ tenantId: org.id, userId: user.id, action: "order.status_changed", resourceType: "order", resourceId: orderId, metadata: { newStatus } });
+    dispatchWebhookEvent(org.id, WEBHOOK_EVENTS.ORDER_STATUS_CHANGED, { orderId, newStatus });
+    dispatchIntegrationNotifications(org.id, WEBHOOK_EVENTS.ORDER_STATUS_CHANGED, { orderId, newStatus });
 
     // Send status update email (non-blocking)
     try {
