@@ -6,6 +6,7 @@ import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { requireAuth } from "@/lib/auth/utils";
 import { ItemForm } from "@/components/admin/item-form";
 import { updateItem } from "../../actions";
+import { getSignedUrl } from "@/lib/storage/supabase";
 
 export default async function EditItemPage({
   params,
@@ -34,6 +35,15 @@ export default async function EditItemPage({
       .orderBy(categories.sortOrder);
   });
 
+  // Resolve signed URLs for existing images
+  const imagePaths = (item.imageUrls as string[]) ?? [];
+  const existingImages = await Promise.all(
+    imagePaths.map(async (path) => ({
+      path,
+      signedUrl: await getSignedUrl(path),
+    }))
+  );
+
   async function handleUpdate(formData: FormData) {
     "use server";
     return updateItem(id, formData);
@@ -47,7 +57,12 @@ export default async function EditItemPage({
           Update {item.name}
         </p>
       </div>
-      <ItemForm item={item} categories={allCategories} action={handleUpdate} />
+      <ItemForm
+        item={item}
+        categories={allCategories}
+        existingImages={existingImages}
+        action={handleUpdate}
+      />
     </div>
   );
 }

@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   experimental: {
     viewTransition: true,
+    serverActions: {
+      bodySizeLimit: "25mb",
+    },
   },
   images: {
     remotePatterns: [

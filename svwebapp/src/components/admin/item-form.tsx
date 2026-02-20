@@ -1,29 +1,43 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { slugify } from "@/lib/utils";
+import { ImageUpload, type ExistingImage } from "@/components/admin/image-upload";
 import type { Item, Category } from "@/lib/db/schema";
 
 interface ItemFormProps {
   item?: Item;
   categories: Category[];
+  existingImages?: ExistingImage[];
   action: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
 }
 
-export function ItemForm({ item, categories, action }: ItemFormProps) {
+export function ItemForm({ item, categories, existingImages, action }: ItemFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const pendingFilesRef = useRef<File[]>([]);
+  const existingPathsRef = useRef<string[]>(existingImages?.map((img) => img.path) ?? []);
+
+  function handleImageChange(pendingFiles: File[], existingPaths: string[]) {
+    pendingFilesRef.current = pendingFiles;
+    existingPathsRef.current = existingPaths;
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
 
     const formData = new FormData(e.currentTarget);
+
+    // Append image data
+    for (const file of pendingFilesRef.current) {
+      formData.append("newImages", file);
+    }
+    formData.set("existingImagePaths", JSON.stringify(existingPathsRef.current));
 
     startTransition(async () => {
       const result = await action(formData);
@@ -104,10 +118,9 @@ export function ItemForm({ item, categories, action }: ItemFormProps) {
         </div>
       )}
 
-      <input
-        type="hidden"
-        name="imageUrls"
-        value={JSON.stringify(item?.imageUrls ?? [])}
+      <ImageUpload
+        existingImages={existingImages}
+        onChange={handleImageChange}
       />
 
       <div className="flex gap-3">
