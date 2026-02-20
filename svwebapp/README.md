@@ -19,19 +19,30 @@ Branded currency stores for organizations. Each org gets its own vault currency,
 ### Core
 - Multi-tenant architecture (single DB, shared schema, RLS via `withTenant()`)
 - Custom branded currency per organization
-- Item catalog with categories, images, markdown descriptions
-- Shopping cart and order management
+- Item catalog with categories, drag-and-drop image upload, markdown descriptions
+- Shopping cart and order management with auto-refund on cancellation
 - Transaction ledger with full audit trail
 
 ### Admin
 - Dashboard with stats and activity feed
-- Catalog management (CRUD, stock tracking, active toggle)
+- Catalog management (CRUD, image upload, stock tracking, active toggle)
 - Order management (approve, fulfill, cancel with auto-refund)
 - User management (invite, roles, activate/deactivate)
 - Currency distribution and ledger
+- Audit log with filtering by action, resource, and user
 - Billing page (plan usage, Stripe checkout, billing portal)
 - SSO configuration (Microsoft Entra ID)
+- API key management (create, revoke, scoped permissions)
+- Webhook endpoint management (CRUD, delivery history, automatic retries)
+- Slack and Microsoft Teams integrations
+- Interactive API documentation (OpenAPI 3.0)
 - Organization settings
+
+### API (Enterprise)
+- RESTful API with API key authentication and rate limiting
+- Endpoints for members, items, orders, and currency operations
+- Auto-generated OpenAPI 3.0 spec at `/api/v1/openapi.json`
+- Scoped permissions per API key (`members:read`, `items:read`, `orders:write`, `currency:write`)
 
 ### Billing
 - Stripe subscription management (Pro and Enterprise tiers)
@@ -115,22 +126,33 @@ src/
     (marketing)/    # Signup wizard, landing page
     (store)/        # Cart, orders, profile, item detail
     admin/          # Dashboard, catalog, orders, users, currency, billing, settings
-    api/            # Auth, Stripe webhooks/checkout/portal, CSV export
+    api/
+      auth/         # Auth.js route handler
+      cron/         # Webhook retry cron job
+      members/      # Internal members endpoint
+      export/       # CSV export
+      stripe/       # Checkout session, billing portal
+      webhooks/     # Stripe webhook handler
+      v1/           # Public REST API (members, items, orders, currency)
   components/
-    admin/          # Sidebar, stat card, toggle components
+    admin/          # Sidebar, stat card, image upload, item form, toggles
     marketing/      # Landing page components
     shared/         # Logo, theme toggle
     store/          # Catalog, item card, cart, image gallery, search
     ui/             # Button, input, card, badge, data table, pagination, skeleton, etc.
   lib/
+    api/            # API key auth, rate limiting, response helpers, OpenAPI spec
+    audit/          # Audit log helpers
     auth/           # Auth config, SSO, session, password utilities
-    currency/       # Currency engine (credit, debit)
+    currency/       # Currency engine (credit, debit, bulk distribute)
     db/             # Drizzle client, schema, tenant helper, pagination
     email/          # Resend client, email templates
+    integrations/   # Slack and Teams webhook dispatchers
     stripe/         # Stripe client, plan definitions, enforcement
-    storage/        # Supabase storage helpers
-    tenant/         # Tenant resolution (subdomain, query param)
-    validators/     # Zod schemas
+    storage/        # Supabase storage helpers (upload, signed URLs, delete)
+    tenant/         # Tenant resolution (subdomain, query param, user fallback)
+    validators/     # Zod schemas (auth, items, currency, API, signup)
+    webhooks/       # Webhook dispatch, HMAC signing, retry logic, event types
 ```
 
 ## Plan Tiers
@@ -141,6 +163,8 @@ src/
 | Catalog Items | 100 | Unlimited |
 | SSO | - | Yes |
 | API Access | - | Yes |
+| Webhooks | - | Yes |
+| Integrations | - | Yes |
 
 ## Environment Variables
 
