@@ -14,6 +14,9 @@ import {
   webhookDeliveries,
   auditLogs,
   integrations,
+  itemOptionGroups,
+  itemOptionValues,
+  itemVariants,
 } from "./schema";
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -70,7 +73,7 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   items: many(items),
 }));
 
-export const itemsRelations = relations(items, ({ one }) => ({
+export const itemsRelations = relations(items, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [items.tenantId],
     references: [organizations.id],
@@ -79,6 +82,8 @@ export const itemsRelations = relations(items, ({ one }) => ({
     fields: [items.categoryId],
     references: [categories.id],
   }),
+  optionGroups: many(itemOptionGroups),
+  variants: many(itemVariants),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -93,6 +98,46 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   orderItems: many(orderItems),
 }));
 
+export const itemOptionGroupsRelations = relations(
+  itemOptionGroups,
+  ({ one, many }) => ({
+    organization: one(organizations, {
+      fields: [itemOptionGroups.tenantId],
+      references: [organizations.id],
+    }),
+    item: one(items, {
+      fields: [itemOptionGroups.itemId],
+      references: [items.id],
+    }),
+    values: many(itemOptionValues),
+  })
+);
+
+export const itemOptionValuesRelations = relations(
+  itemOptionValues,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [itemOptionValues.tenantId],
+      references: [organizations.id],
+    }),
+    optionGroup: one(itemOptionGroups, {
+      fields: [itemOptionValues.optionGroupId],
+      references: [itemOptionGroups.id],
+    }),
+  })
+);
+
+export const itemVariantsRelations = relations(itemVariants, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [itemVariants.tenantId],
+    references: [organizations.id],
+  }),
+  item: one(items, {
+    fields: [itemVariants.itemId],
+    references: [items.id],
+  }),
+}));
+
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   organization: one(organizations, {
     fields: [orderItems.tenantId],
@@ -105,6 +150,10 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   item: one(items, {
     fields: [orderItems.itemId],
     references: [items.id],
+  }),
+  variant: one(itemVariants, {
+    fields: [orderItems.variantId],
+    references: [itemVariants.id],
   }),
 }));
 

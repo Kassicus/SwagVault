@@ -87,22 +87,32 @@ export default async function OrderDetailPage({
           <CardTitle>Items</CardTitle>
         </CardHeader>
         <CardContent className="divide-y divide-border">
-          {lineItems.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
-            >
-              <div>
-                <p className="font-medium">{item.itemName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatCurrency(item.itemPrice, sym)} x {item.quantity}
+          {lineItems.map((item) => {
+            const opts = item.selectedOptions as Record<string, string> | null;
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+              >
+                <div>
+                  <p className="font-medium">{item.itemName}</p>
+                  {opts && Object.keys(opts).length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {Object.entries(opts)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(" / ")}
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {formatCurrency(item.itemPrice, sym)} x {item.quantity}
+                  </p>
+                </div>
+                <p className="font-medium">
+                  {formatCurrency(item.itemPrice * item.quantity, sym)}
                 </p>
               </div>
-              <p className="font-medium">
-                {formatCurrency(item.itemPrice * item.quantity, sym)}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 

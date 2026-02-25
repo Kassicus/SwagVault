@@ -1,12 +1,18 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { withTenant } from "@/lib/db/tenant";
-import { items } from "@/lib/db/schema";
+import {
+  items,
+  itemOptionGroups,
+  itemOptionValues,
+  itemVariants,
+} from "@/lib/db/schema";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { formatCurrency } from "@/lib/utils";
 import { getSignedUrl } from "@/lib/storage/supabase";
 import { Badge } from "@/components/ui/badge";
 import { AddToCartButton } from "@/components/store/add-to-cart-button";
+import { VariantSelector } from "@/components/store/variant-selector";
 import { ImageGallery } from "@/components/store/image-gallery";
 import { Markdown } from "@/components/ui/markdown";
 
@@ -50,7 +56,51 @@ export default async function ItemDetailPage({
     }
   }
 
-  const outOfStock = item.stockQuantity !== null && item.stockQuantity === 0;
+  // Load option groups + values
+  const optionGroupRows = await withTenant(org.id, async (tx) => {
+    return tx
+      .select()
+      .from(itemOptionGroups)
+      .where(
+        and(
+          eq(itemOptionGroups.itemId, item.id),
+          eq(itemOptionGroups.tenantId, org.id)
+        )
+      )
+      .orderBy(asc(itemOptionGroups.sortOrder));
+  });
+
+  const optionGroups: { name: string; values: string[] }[] = [];
+  for (const group of optionGroupRows) {
+    const valueRows = await withTenant(org.id, async (tx) => {
+      return tx
+        .select()
+        .from(itemOptionValues)
+        .where(eq(itemOptionValues.optionGroupId, group.id))
+        .orderBy(asc(itemOptionValues.sortOrder));
+    });
+    optionGroups.push({
+      name: group.name,
+      values: valueRows.map((v) => v.value),
+    });
+  }
+
+  // Load variants
+  const variants = await withTenant(org.id, async (tx) => {
+    return tx
+      .select()
+      .from(itemVariants)
+      .where(
+        and(
+          eq(itemVariants.itemId, item.id),
+          eq(itemVariants.tenantId, org.id),
+          eq(itemVariants.isActive, true)
+        )
+      );
+  });
+
+  const hasOptions = optionGroups.length > 0;
+  const outOfStock = !hasOptions && item.stockQuantity !== null && item.stockQuantity === 0;
   const firstImageUrl = resolvedImages.length > 0 ? resolvedImages[0].url : null;
 
   return (
@@ -66,8 +116,8 @@ export default async function ItemDetailPage({
           <span className="text-3xl font-bold text-primary">
             {formatCurrency(item.price, org.currencySymbol ?? "C")}
           </span>
-          {outOfStock && <Badge variant="destructive">Out of Stock</Badge>}
-          {item.stockQuantity !== null && item.stockQuantity > 0 && (
+          {!hasOptions && outOfStock && <Badge variant="destructive">Out of Stock</Badge>}
+          {!hasOptions && item.stockQuantity !== null && item.stockQuantity > 0 && (
             <Badge variant="secondary">{item.stockQuantity} left</Badge>
           )}
         </div>
@@ -79,17 +129,39 @@ export default async function ItemDetailPage({
         )}
 
         <div className="mt-8">
-          <AddToCartButton
-            item={{
-              id: item.id,
-              name: item.name,
-              slug: item.slug,
-              price: item.price,
-              imageUrl: firstImageUrl,
-              stockQuantity: item.stockQuantity,
-            }}
-            disabled={outOfStock}
-          />
+          {hasOptions ? (
+            <VariantSelector
+              item={{
+                id: item.id,
+                name: item.name,
+                slug: item.slug,
+                price: item.price,
+                imageUrl: firstImageUrl,
+                stockQuantity: item.stockQuantity,
+              }}
+              optionGroups={optionGroups}
+              variants={variants.map((v) => ({
+                id: v.id,
+                options: v.options as Record<string, string>,
+                stockQuantity: v.stockQuantity,
+                priceOverride: v.priceOverride,
+                isActive: v.isActive,
+              }))}
+              currencySymbol={org.currencySymbol ?? "C"}
+            />
+          ) : (
+            <AddToCartButton
+              item={{
+                id: item.id,
+                name: item.name,
+                slug: item.slug,
+                price: item.price,
+                imageUrl: firstImageUrl,
+                stockQuantity: item.stockQuantity,
+              }}
+              disabled={outOfStock}
+            />
+          )}
         </div>
       </div>
     </div>

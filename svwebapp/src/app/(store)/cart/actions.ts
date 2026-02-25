@@ -3,7 +3,7 @@
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withTenant } from "@/lib/db/tenant";
-import { items, orders, orderItems } from "@/lib/db/schema";
+import { items, orders, orderItems, itemVariants } from "@/lib/db/schema";
 import { debitUser } from "@/lib/currency/engine";
 import { requireAuth } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
@@ -16,6 +16,7 @@ import { dispatchIntegrationNotifications } from "@/lib/integrations/dispatch";
 
 interface CartLineItem {
   itemId: string;
+  variantId?: string;
   quantity: number;
 }
 
@@ -37,6 +38,9 @@ export async function placeOrder(lineItems: CartLineItem[]) {
         price: number;
         quantity: number;
         stockQuantity: number | null;
+        variantId: string | null;
+        selectedOptions: Record<string, string> | null;
+        variantStockQuantity: number | null;
       }[] = [];
 
       for (const line of lineItems) {
@@ -56,20 +60,62 @@ export async function placeOrder(lineItems: CartLineItem[]) {
           throw new Error(`Item not found: ${line.itemId}`);
         }
 
-        if (
-          item.stockQuantity !== null &&
-          item.stockQuantity < line.quantity
-        ) {
-          throw new OutOfStockError(item.name);
+        let effectivePrice = item.price;
+        let effectiveStock = item.stockQuantity;
+        let variantId: string | null = null;
+        let selectedOptions: Record<string, string> | null = null;
+        let variantStockQuantity: number | null = null;
+
+        if (line.variantId) {
+          // Lock and validate variant
+          const [variant] = await tx
+            .select()
+            .from(itemVariants)
+            .where(
+              and(
+                eq(itemVariants.id, line.variantId),
+                eq(itemVariants.itemId, line.itemId),
+                eq(itemVariants.tenantId, org.id),
+                eq(itemVariants.isActive, true)
+              )
+            )
+            .for("update");
+
+          if (!variant) {
+            throw new Error(`Variant not found for item: ${item.name}`);
+          }
+
+          effectivePrice = variant.priceOverride ?? item.price;
+          effectiveStock = variant.stockQuantity;
+          variantStockQuantity = variant.stockQuantity;
+          variantId = variant.id;
+          selectedOptions = variant.options as Record<string, string>;
+
+          if (effectiveStock !== null && effectiveStock < line.quantity) {
+            throw new OutOfStockError(
+              `${item.name} (${Object.values(selectedOptions).join(" / ")})`
+            );
+          }
+        } else {
+          // Simple item (no variant)
+          if (
+            item.stockQuantity !== null &&
+            item.stockQuantity < line.quantity
+          ) {
+            throw new OutOfStockError(item.name);
+          }
         }
 
-        totalCost += item.price * line.quantity;
+        totalCost += effectivePrice * line.quantity;
         validatedItems.push({
           id: item.id,
           name: item.name,
-          price: item.price,
+          price: effectivePrice,
           quantity: line.quantity,
           stockQuantity: item.stockQuantity,
+          variantId,
+          selectedOptions,
+          variantStockQuantity,
         });
       }
 
@@ -93,19 +139,29 @@ export async function placeOrder(lineItems: CartLineItem[]) {
         })
         .returning({ id: orders.id, orderNumber: orders.orderNumber });
 
-      // 4. Create order items
+      // 4. Create order items + decrement stock
       for (const vi of validatedItems) {
         await tx.insert(orderItems).values({
           tenantId: org.id,
           orderId: order.id,
           itemId: vi.id,
+          variantId: vi.variantId,
           itemName: vi.name,
           itemPrice: vi.price,
+          selectedOptions: vi.selectedOptions,
           quantity: vi.quantity,
         });
 
-        // 5. Decrement stock
-        if (vi.stockQuantity !== null) {
+        // 5. Decrement stock on variant or item
+        if (vi.variantId && vi.variantStockQuantity !== null) {
+          await tx
+            .update(itemVariants)
+            .set({
+              stockQuantity: sql`${itemVariants.stockQuantity} - ${vi.quantity}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(itemVariants.id, vi.variantId));
+        } else if (!vi.variantId && vi.stockQuantity !== null) {
           await tx
             .update(items)
             .set({

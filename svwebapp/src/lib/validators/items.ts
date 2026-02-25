@@ -17,5 +17,23 @@ export const createItemSchema = z.object({
 
 export const updateItemSchema = createItemSchema.partial();
 
+export const optionGroupInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  values: z.array(z.string().min(1).max(100)).min(1),
+});
+
+export const variantInputSchema = z.object({
+  options: z.record(z.string(), z.string()),
+  stockQuantity: z.number().int().min(0).optional().nullable(),
+  priceOverride: z.number().int().min(0).optional().nullable(),
+});
+
+export const itemOptionsSchema = z.object({
+  optionGroups: z.array(optionGroupInputSchema),
+  variants: z.array(variantInputSchema),
+});
+
 export type CreateItemInput = z.infer<typeof createItemSchema>;
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
+export type OptionGroupInput = z.infer<typeof optionGroupInputSchema>;
+export type VariantInput = z.infer<typeof variantInputSchema>;

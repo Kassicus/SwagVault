@@ -175,6 +175,62 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── Item Option Groups ─────────────────────────────────────────
+
+export const itemOptionGroups = pgTable(
+  "item_option_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+  },
+  (table) => [
+    uniqueIndex("option_group_tenant_item_name").on(
+      table.tenantId,
+      table.itemId,
+      table.name
+    ),
+  ]
+);
+
+// ─── Item Option Values ─────────────────────────────────────────
+
+export const itemOptionValues = pgTable("item_option_values", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  optionGroupId: uuid("option_group_id")
+    .notNull()
+    .references(() => itemOptionGroups.id, { onDelete: "cascade" }),
+  value: varchar("value", { length: 100 }).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+});
+
+// ─── Item Variants ──────────────────────────────────────────────
+
+export const itemVariants = pgTable("item_variants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  itemId: uuid("item_id")
+    .notNull()
+    .references(() => items.id, { onDelete: "cascade" }),
+  options: jsonb("options").$type<Record<string, string>>().notNull(),
+  stockQuantity: integer("stock_quantity"),
+  priceOverride: integer("price_override"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── Order Items ─────────────────────────────────────────────────
 
 export const orderItems = pgTable("order_items", {
@@ -188,8 +244,12 @@ export const orderItems = pgTable("order_items", {
   itemId: uuid("item_id")
     .notNull()
     .references(() => items.id, { onDelete: "cascade" }),
+  variantId: uuid("variant_id").references(() => itemVariants.id, {
+    onDelete: "set null",
+  }),
   itemName: varchar("item_name", { length: 255 }).notNull(),
   itemPrice: integer("item_price").notNull(),
+  selectedOptions: jsonb("selected_options").$type<Record<string, string>>(),
   quantity: integer("quantity").default(1).notNull(),
 });
 
@@ -321,3 +381,6 @@ export type Transaction = typeof transactions.$inferSelect;
 export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type Integration = typeof integrations.$inferSelect;
+export type ItemOptionGroup = typeof itemOptionGroups.$inferSelect;
+export type ItemOptionValue = typeof itemOptionValues.$inferSelect;
+export type ItemVariant = typeof itemVariants.$inferSelect;

@@ -59,6 +59,23 @@ export async function uploadOrgLogo(
   return path;
 }
 
+export async function uploadUserAvatar(
+  userId: string,
+  file: File
+): Promise<string> {
+  validateFile(file);
+  const supabase = getClient();
+  const ext = file.name.split(".").pop();
+  const path = `avatars/${userId}/profile-avatar.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: true });
+
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+  return path;
+}
+
 export async function getSignedUrl(
   path: string,
   expiresIn: number = 3600

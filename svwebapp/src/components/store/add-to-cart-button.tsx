@@ -1,17 +1,24 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useCart, type CartItem } from "@/hooks/use-cart";
+import { useCart, cartKey, type CartItem } from "@/hooks/use-cart";
 
 interface AddToCartButtonProps {
   item: Omit<CartItem, "quantity">;
   disabled?: boolean;
+  label?: string;
 }
 
-export function AddToCartButton({ item, disabled }: AddToCartButtonProps) {
+export function AddToCartButton({ item, disabled, label }: AddToCartButtonProps) {
   const { addItem, items } = useCart();
 
-  const inCart = items.find((i) => i.id === item.id);
+  const key = cartKey(item);
+  const inCart = items.find((i) => cartKey(i) === key);
+
+  const atStockLimit =
+    item.stockQuantity !== null &&
+    inCart !== undefined &&
+    inCart.quantity >= item.stockQuantity;
 
   function handleClick() {
     addItem(item);
@@ -20,15 +27,19 @@ export function AddToCartButton({ item, disabled }: AddToCartButtonProps) {
   return (
     <Button
       onClick={handleClick}
-      disabled={disabled}
+      disabled={disabled || atStockLimit}
       size="lg"
       className="w-full md:w-auto"
     >
-      {disabled
-        ? "Out of Stock"
-        : inCart
-          ? `Add Another (${inCart.quantity} in cart)`
-          : "Add to Cart"}
+      {label
+        ? label
+        : disabled
+          ? "Out of Stock"
+          : atStockLimit
+            ? `Max in Cart (${inCart!.quantity})`
+            : inCart
+              ? `Add Another (${inCart.quantity} in cart)`
+              : "Add to Cart"}
     </Button>
   );
 }

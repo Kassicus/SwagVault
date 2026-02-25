@@ -3,10 +3,20 @@
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { withTenant } from "@/lib/db/tenant";
-import { items, categories } from "@/lib/db/schema";
+import {
+  items,
+  categories,
+  itemOptionGroups,
+  itemOptionValues,
+  itemVariants,
+} from "@/lib/db/schema";
 import { requireAuth } from "@/lib/auth/utils";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
-import { createItemSchema, updateItemSchema } from "@/lib/validators/items";
+import {
+  createItemSchema,
+  updateItemSchema,
+  itemOptionsSchema,
+} from "@/lib/validators/items";
 import { slugify } from "@/lib/utils";
 import { checkPlanLimit } from "@/lib/stripe/enforce";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
@@ -14,6 +24,54 @@ import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
 import { logAuditEvent } from "@/lib/audit/log";
 import { dispatchIntegrationNotifications } from "@/lib/integrations/dispatch";
 import { uploadItemImage, deleteFile } from "@/lib/storage/supabase";
+
+// ─── Helpers ────────────────────────────────────────────────────
+
+async function insertOptionGroupsAndVariants(
+  tx: Parameters<Parameters<typeof withTenant>[1]>[0],
+  tenantId: string,
+  itemId: string,
+  optionGroupsData: { name: string; values: string[] }[],
+  variantsData: {
+    options: Record<string, string>;
+    stockQuantity?: number | null;
+    priceOverride?: number | null;
+  }[]
+) {
+  for (let i = 0; i < optionGroupsData.length; i++) {
+    const group = optionGroupsData[i];
+    const [inserted] = await tx
+      .insert(itemOptionGroups)
+      .values({
+        tenantId,
+        itemId,
+        name: group.name,
+        sortOrder: i,
+      })
+      .returning({ id: itemOptionGroups.id });
+
+    for (let j = 0; j < group.values.length; j++) {
+      await tx.insert(itemOptionValues).values({
+        tenantId,
+        optionGroupId: inserted.id,
+        value: group.values[j],
+        sortOrder: j,
+      });
+    }
+  }
+
+  for (const variant of variantsData) {
+    await tx.insert(itemVariants).values({
+      tenantId,
+      itemId,
+      options: variant.options,
+      stockQuantity: variant.stockQuantity ?? null,
+      priceOverride: variant.priceOverride ?? null,
+    });
+  }
+}
+
+// ─── Create Item ────────────────────────────────────────────────
 
 export async function createItem(formData: FormData) {
   const user = await requireAuth();
@@ -45,16 +103,48 @@ export async function createItem(formData: FormData) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
+  // Parse option groups + variants (if present)
+  const optionGroupsRaw = formData.get("optionGroups") as string | null;
+  const variantsRaw = formData.get("variants") as string | null;
+  let optionsData: { optionGroups: { name: string; values: string[] }[]; variants: { options: Record<string, string>; stockQuantity?: number | null; priceOverride?: number | null }[] } | null = null;
+
+  if (optionGroupsRaw && variantsRaw) {
+    const optionsParsed = itemOptionsSchema.safeParse({
+      optionGroups: JSON.parse(optionGroupsRaw),
+      variants: JSON.parse(variantsRaw),
+    });
+    if (!optionsParsed.success) {
+      return { success: false, error: optionsParsed.error.issues[0].message };
+    }
+    optionsData = optionsParsed.data;
+  }
+
+  // If item has variants, stock lives on variants — set item stock to null
+  const itemStockQuantity = optionsData ? null : parsed.data.stockQuantity;
+
   // Insert item first (without images) to get the ID
   const result = await withTenant(org.id, async (tx) => {
     const [item] = await tx
       .insert(items)
       .values({
         ...parsed.data,
+        stockQuantity: itemStockQuantity,
         tenantId: org.id,
         imageUrls: [],
       })
       .returning({ id: items.id, slug: items.slug });
+
+    // Insert option groups + variants
+    if (optionsData) {
+      await insertOptionGroupsAndVariants(
+        tx,
+        org.id,
+        item.id,
+        optionsData.optionGroups,
+        optionsData.variants
+      );
+    }
+
     return item;
   });
 
@@ -88,6 +178,8 @@ export async function createItem(formData: FormData) {
   return { success: true, item: result };
 }
 
+// ─── Update Item ────────────────────────────────────────────────
+
 export async function updateItem(itemId: string, formData: FormData) {
   const user = await requireAuth();
   const org = await getResolvedTenant();
@@ -114,6 +206,22 @@ export async function updateItem(itemId: string, formData: FormData) {
   const parsed = updateItemSchema.safeParse(raw);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  // Parse option groups + variants (if present)
+  const optionGroupsRaw = formData.get("optionGroups") as string | null;
+  const variantsRaw = formData.get("variants") as string | null;
+  let optionsData: { optionGroups: { name: string; values: string[] }[]; variants: { options: Record<string, string>; stockQuantity?: number | null; priceOverride?: number | null }[] } | null = null;
+
+  if (optionGroupsRaw && variantsRaw) {
+    const optionsParsed = itemOptionsSchema.safeParse({
+      optionGroups: JSON.parse(optionGroupsRaw),
+      variants: JSON.parse(variantsRaw),
+    });
+    if (!optionsParsed.success) {
+      return { success: false, error: optionsParsed.error.issues[0].message };
+    }
+    optionsData = optionsParsed.data;
   }
 
   // Get existing image paths from the form and current item
@@ -154,6 +262,11 @@ export async function updateItem(itemId: string, formData: FormData) {
     }
   }
 
+  // If has variants, set item stock to null (stock lives on variants)
+  if (optionsData) {
+    parsed.data.stockQuantity = null;
+  }
+
   await withTenant(org.id, async (tx) => {
     await tx
       .update(items)
@@ -163,6 +276,59 @@ export async function updateItem(itemId: string, formData: FormData) {
         updatedAt: new Date(),
       })
       .where(and(eq(items.id, itemId), eq(items.tenantId, org.id)));
+
+    // Replace option groups + variants (delete-then-reinsert)
+    if (optionsData) {
+      // Delete existing option groups (cascades to values)
+      await tx
+        .delete(itemOptionGroups)
+        .where(
+          and(
+            eq(itemOptionGroups.itemId, itemId),
+            eq(itemOptionGroups.tenantId, org.id)
+          )
+        );
+
+      // Delete existing variants
+      await tx
+        .delete(itemVariants)
+        .where(
+          and(
+            eq(itemVariants.itemId, itemId),
+            eq(itemVariants.tenantId, org.id)
+          )
+        );
+
+      // Re-insert
+      await insertOptionGroupsAndVariants(
+        tx,
+        org.id,
+        itemId,
+        optionsData.optionGroups,
+        optionsData.variants
+      );
+    } else if (optionGroupsRaw === null && variantsRaw === null) {
+      // No options data sent — form had no options section, leave as-is
+    } else {
+      // Options were explicitly cleared (empty arrays sent)
+      // Clean up existing option groups + variants
+      await tx
+        .delete(itemOptionGroups)
+        .where(
+          and(
+            eq(itemOptionGroups.itemId, itemId),
+            eq(itemOptionGroups.tenantId, org.id)
+          )
+        );
+      await tx
+        .delete(itemVariants)
+        .where(
+          and(
+            eq(itemVariants.itemId, itemId),
+            eq(itemVariants.tenantId, org.id)
+          )
+        );
+    }
   });
 
   // Audit + webhook + integrations (non-blocking)
@@ -174,6 +340,8 @@ export async function updateItem(itemId: string, formData: FormData) {
   revalidatePath("/");
   return { success: true };
 }
+
+// ─── Toggle Active ──────────────────────────────────────────────
 
 export async function toggleItemActive(itemId: string, isActive: boolean) {
   await requireAuth();
@@ -190,6 +358,8 @@ export async function toggleItemActive(itemId: string, isActive: boolean) {
   revalidatePath("/");
   return { success: true };
 }
+
+// ─── Delete Item ────────────────────────────────────────────────
 
 export async function deleteItem(itemId: string) {
   const user = await requireAuth();
@@ -228,6 +398,8 @@ export async function deleteItem(itemId: string) {
   revalidatePath("/");
   return { success: true };
 }
+
+// ─── Create Category ────────────────────────────────────────────
 
 export async function createCategory(formData: FormData) {
   await requireAuth();

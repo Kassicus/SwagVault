@@ -1,8 +1,10 @@
 import { eq, and, desc, count } from "drizzle-orm";
 import { withTenant } from "@/lib/db/tenant";
-import { balances, transactions } from "@/lib/db/schema";
+import { db } from "@/lib/db";
+import { users, balances, transactions } from "@/lib/db/schema";
 import { getResolvedTenant } from "@/lib/tenant/with-tenant-page";
 import { requireAuth } from "@/lib/auth/utils";
+import { getSignedUrl } from "@/lib/storage/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { Pagination } from "@/components/ui/pagination";
@@ -18,6 +20,16 @@ export default async function ProfilePage({
   const org = await getResolvedTenant();
   const params = await searchParams;
   const { page, pageSize } = parsePaginationParams(params);
+
+  // Resolve avatar signed URL
+  const [userRow] = await db
+    .select({ avatarUrl: users.avatarUrl })
+    .from(users)
+    .where(eq(users.id, user.id));
+  let currentAvatarUrl: string | null = null;
+  if (userRow?.avatarUrl) {
+    try { currentAvatarUrl = await getSignedUrl(userRow.avatarUrl); } catch {}
+  }
 
   const { balance, recentTx, totalTx } = await withTenant(org.id, async (tx) => {
     const [bal] = await tx
@@ -87,7 +99,7 @@ export default async function ProfilePage({
           <CardTitle>Edit Profile</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProfileEditForm currentName={user.displayName} />
+          <ProfileEditForm currentName={user.displayName} currentAvatarUrl={currentAvatarUrl} />
         </CardContent>
       </Card>
 
