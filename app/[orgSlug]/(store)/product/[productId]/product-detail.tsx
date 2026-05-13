@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Money } from '@/lib/currency/money';
 import type { CurrencyConfig } from '@/lib/currency/format';
 import type { ProductWithVariants } from '@/lib/products/server';
+import { addToCart } from '@/lib/cart/store';
 
 type VariantDisplay = {
   id: string;
@@ -18,11 +19,13 @@ type VariantDisplay = {
 
 export function ProductDetail({
   slug,
+  orgId,
   product,
   activeVariants,
   currency,
 }: {
   slug: string;
+  orgId: string;
   product: ProductWithVariants;
   activeVariants: VariantDisplay[];
   currency: CurrencyConfig;
@@ -31,10 +34,18 @@ export function ProductDetail({
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
     activeVariants[0]?.id ?? null,
   );
+  const [added, setAdded] = useState(false);
 
   const selected =
     activeVariants.find((v) => v.id === selectedVariantId) ?? activeVariants[0];
   const isMultiVariant = activeVariants.length > 1;
+
+  function handleAdd() {
+    if (!selected || selected.inventory_count === 0) return;
+    addToCart(orgId, selected.id, 1);
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 2000);
+  }
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
@@ -129,13 +140,23 @@ export function ProductDetail({
           ) : (
             <div className="text-xs text-muted-foreground">Unavailable</div>
           )}
-          <Button
-            type="button"
-            disabled={!selected || selected.inventory_count === 0}
-            title="Cart lands in Phase 4"
-          >
-            Add to cart
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              disabled={!selected || selected.inventory_count === 0}
+              onClick={handleAdd}
+            >
+              {added ? 'Added!' : 'Add to cart'}
+            </Button>
+            {added ? (
+              <Link
+                href={`/${slug}/cart`}
+                className="text-sm underline"
+              >
+                View cart
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         {product.tags.length > 0 ? (

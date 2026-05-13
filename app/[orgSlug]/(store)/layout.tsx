@@ -5,6 +5,7 @@ import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { logoutAction } from '@/lib/auth/actions';
+import { CartLink } from './cart-link';
 
 export default async function StoreLayout({
   children,
@@ -38,6 +39,8 @@ export default async function StoreLayout({
             </Link>
             <nav className="flex items-center gap-4 text-sm text-muted-foreground">
               <Link href={`/${orgSlug}`}>Store</Link>
+              <CartLink slug={orgSlug} orgId={ctx.organizationId} />
+              <Link href={`/${orgSlug}/orders`}>My orders</Link>
               <Link href={`/${orgSlug}/account`}>My account</Link>
               {showAdminLink ? (
                 <Link

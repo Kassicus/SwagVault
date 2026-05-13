@@ -20,6 +20,9 @@ export type SubscriptionStatus =
   | 'unpaid';
 export type SubscriptionPlan = 'monthly' | 'annual';
 export type MemberRole = 'owner' | 'admin' | 'member';
+export type OrderStatus = 'pending' | 'fulfilled' | 'cancelled';
+export type FulfillmentMethod = 'shipping' | 'pickup';
+export type TransactionKind = 'grant' | 'spend' | 'refund' | 'adjustment';
 
 export type Database = {
   public: {
@@ -204,11 +207,99 @@ export type Database = {
         >;
         Relationships: [];
       };
+      orders: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          status: OrderStatus;
+          fulfillment_method: FulfillmentMethod;
+          shipping_address: Json | null;
+          total_minor_units: number;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          status?: OrderStatus;
+          fulfillment_method: FulfillmentMethod;
+          shipping_address?: Json | null;
+          total_minor_units: number;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['orders']['Insert']>;
+        Relationships: [];
+      };
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          product_id: string | null;
+          variant_id: string | null;
+          qty: number;
+          unit_price_minor_units: number;
+          product_name: string;
+          variant_name: string | null;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          product_id?: string | null;
+          variant_id?: string | null;
+          qty: number;
+          unit_price_minor_units: number;
+          product_name: string;
+          variant_name?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['order_items']['Insert']>;
+        Relationships: [];
+      };
+      transactions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          kind: TransactionKind;
+          amount_minor_units: number;
+          order_id: string | null;
+          actor_user_id: string | null;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          kind: TransactionKind;
+          amount_minor_units: number;
+          order_id?: string | null;
+          actor_user_id?: string | null;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['transactions']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
       setup_organization: {
         Args: { p_user_id: string; p_slug: string; p_name: string };
+        Returns: string;
+      };
+      place_order: {
+        Args: {
+          p_organization_id: string;
+          p_user_id: string;
+          p_items: Json;
+          p_fulfillment: FulfillmentMethod;
+          p_shipping_address: Json | null;
+        };
         Returns: string;
       };
     };
@@ -217,6 +308,9 @@ export type Database = {
       subscription_status: SubscriptionStatus;
       subscription_plan: SubscriptionPlan;
       member_role: MemberRole;
+      order_status: OrderStatus;
+      fulfillment_method: FulfillmentMethod;
+      transaction_kind: TransactionKind;
     };
   };
 };
