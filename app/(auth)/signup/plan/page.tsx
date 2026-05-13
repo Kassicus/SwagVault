@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   createSupabaseServiceClient,
 } from '@/lib/supabase/server';
+import { isBillingEnabled } from '@/lib/billing/flag';
 import { PlanForm } from './plan-form';
 
 export const metadata = { title: 'Choose your plan · SwagVault' };
@@ -13,12 +14,15 @@ export default async function PlanPage({
 }: {
   searchParams: Promise<{ slug?: string }>;
 }) {
+  const { slug } = await searchParams;
+  if (!slug) redirect('/signup/org');
+
+  // Defensive: if someone lands here while billing is disabled, send them home.
+  if (!isBillingEnabled()) redirect(`/${slug}/admin`);
+
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) redirect('/login');
-
-  const { slug } = await searchParams;
-  if (!slug) redirect('/signup/org');
 
   // Confirm the current user owns this org slug.
   const service = createSupabaseServiceClient();

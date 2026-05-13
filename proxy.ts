@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/lib/supabase/types';
+import { isBillingEnabled } from '@/lib/billing/flag';
 
 // Next.js 16 calls this `proxy.ts` (formerly `middleware.ts`). Runs as a
 // Vercel Function on Fluid Compute.
@@ -83,6 +84,7 @@ export async function proxy(req: NextRequest) {
   };
 
   const subActive =
+    !isBillingEnabled() ||
     org.subscription_status === 'active' ||
     org.subscription_status === 'trialing';
 

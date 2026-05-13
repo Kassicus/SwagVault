@@ -6,6 +6,7 @@ import {
   createSupabaseServiceClient,
 } from '@/lib/supabase/server';
 import { validateSlugFormat } from '@/lib/slug';
+import { isBillingEnabled } from '@/lib/billing/flag';
 
 export type OrgSetupState = { error: string | null };
 
@@ -61,6 +62,16 @@ export async function createOrgAction(
   });
   if (error || !data) {
     return { error: error?.message ?? 'Failed to create organization.' };
+  }
+
+  if (!isBillingEnabled()) {
+    // Billing is off in this environment; mark the org active so the proxy
+    // doesn't park it at /subscription-required.
+    await service
+      .from('organizations')
+      .update({ subscription_status: 'active' })
+      .eq('id', data);
+    redirect(`/${slug}/admin`);
   }
 
   redirect(`/signup/plan?slug=${encodeURIComponent(slug)}`);
