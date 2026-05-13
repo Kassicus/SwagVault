@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Money } from '@/lib/currency/money';
 import { formatAmount, type CurrencyConfig } from '@/lib/currency/format';
 import type { MemberRole } from '@/lib/supabase/types';
@@ -66,34 +67,37 @@ export function MemberManager({
         <div
           className={
             banner.kind === 'ok'
-              ? 'rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900'
-              : 'rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
+              ? 'border-2 border-mint bg-mint/15 px-3 py-2 text-sm font-bold text-mint'
+              : 'border-2 border-destructive bg-destructive/15 px-3 py-2 text-sm font-bold text-destructive'
           }
         >
-          {banner.text}
+          {banner.kind === 'ok' ? '✓ ' : '⚠ '}{banner.text}
         </div>
       ) : null}
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Current members</h2>
-        <div className="overflow-hidden rounded-lg border">
+      <section className="space-y-4">
+        <h2 className="font-heading text-xl font-bold uppercase">
+          Current members
+        </h2>
+        <div className="overflow-hidden border-2 border-foreground bg-card">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
               <tr>
-                <th className="px-4 py-2 font-normal">Email</th>
-                <th className="px-4 py-2 font-normal">Role</th>
-                <th className="px-4 py-2 font-normal">Balance</th>
-                <th className="px-4 py-2"></th>
+                <th className="px-4 py-3 font-bold">Email</th>
+                <th className="px-4 py-3 font-bold">Role</th>
+                <th className="px-4 py-3 font-bold">Balance</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {members.map((m) => (
+              {members.map((m, idx) => (
                 <MemberTableRow
                   key={m.userId}
                   member={m}
                   currency={currency}
                   expanded={openRowUserId === m.userId}
                   pending={pending}
+                  isLast={idx === members.length - 1}
                   onToggle={() =>
                     setOpenRowUserId((prev) =>
                       prev === m.userId ? null : m.userId,
@@ -143,32 +147,34 @@ function BulkGrantCard({
     Number.isFinite(amountNum) && amountNum > 0 && recipients.length > 0;
 
   return (
-    <section className="space-y-3 rounded-lg border p-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-medium">Grant balance to multiple members</h2>
-        <span className="text-xs text-muted-foreground">
-          Will grant to <strong>{recipients.length}</strong>{' '}
+    <section className="space-y-4 border-2 border-foreground bg-card p-5 shadow-[5px_5px_0_0_var(--mint)]">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-heading text-lg font-bold uppercase">
+          Bulk grant balance
+        </h2>
+        <Badge variant="outline">
+          → {recipients.length}{' '}
           {recipients.length === 1 ? 'member' : 'members'}
-        </span>
+        </Badge>
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_120px_1fr_auto] md:items-end">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="bulk-target">Recipients</Label>
           <select
             id="bulk-target"
             value={target}
             onChange={(e) => setTarget(e.target.value as BulkTarget)}
-            className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm"
+            className="h-10 w-full border-2 border-foreground bg-background px-3 text-sm text-foreground transition-shadow focus-visible:bg-card focus-visible:shadow-[3px_3px_0_0_var(--primary)] focus-visible:outline-none"
           >
             <option value="all">All members</option>
             <option value="admins">Owners + admins</option>
             <option value="members">Members only</option>
           </select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="bulk-amount">Amount</Label>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="label-mono text-muted-foreground">
               {currency.symbol}
             </span>
             <Input
@@ -182,7 +188,7 @@ function BulkGrantCard({
             />
           </div>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="bulk-note">Note (optional)</Label>
           <Input
             id="bulk-note"
@@ -194,6 +200,7 @@ function BulkGrantCard({
         </div>
         <Button
           type="button"
+          variant="mint"
           disabled={!canSubmit || pending}
           onClick={() =>
             onSubmit({
@@ -207,15 +214,14 @@ function BulkGrantCard({
         </Button>
       </div>
       {canSubmit ? (
-        <p className="text-xs text-muted-foreground">
-          Each recipient will receive{' '}
-          <strong>
+        <p className="label-mono text-muted-foreground">
+          Each recipient gets{' '}
+          <span className="text-foreground">
             {formatAmount(
               Math.round(amountNum * 10 ** currency.decimal_places),
               currency,
             )}
-          </strong>
-          .
+          </span>
         </p>
       ) : null}
     </section>
@@ -227,6 +233,7 @@ function MemberTableRow({
   currency,
   expanded,
   pending,
+  isLast,
   onToggle,
   onGrant,
 }: {
@@ -234,6 +241,7 @@ function MemberTableRow({
   currency: CurrencyConfig;
   expanded: boolean;
   pending: boolean;
+  isLast: boolean;
   onToggle: () => void;
   onGrant: (amount: number, note: string) => void;
 }) {
@@ -244,10 +252,14 @@ function MemberTableRow({
 
   return (
     <>
-      <tr className="border-b last:border-0">
-        <td className="px-4 py-3">{member.email}</td>
-        <td className="px-4 py-3 text-muted-foreground">{member.role}</td>
+      <tr className={isLast && !expanded ? '' : 'border-b-2 border-foreground/10'}>
+        <td className="px-4 py-3 font-bold">{member.email}</td>
         <td className="px-4 py-3">
+          <Badge variant={member.role === 'owner' ? 'primary' : 'outline'}>
+            {member.role}
+          </Badge>
+        </td>
+        <td className="px-4 py-3 font-heading font-bold tabular-nums">
           <Money amount={member.balanceMinorUnits} currency={currency} />
         </td>
         <td className="px-4 py-3 text-right">
@@ -262,13 +274,13 @@ function MemberTableRow({
         </td>
       </tr>
       {expanded ? (
-        <tr className="bg-muted/20">
-          <td colSpan={4} className="px-4 py-3">
+        <tr className={isLast ? 'bg-muted' : 'border-b-2 border-foreground/10 bg-muted'}>
+          <td colSpan={4} className="px-4 py-4">
             <div className="grid gap-3 md:grid-cols-[140px_1fr_auto] md:items-end">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label htmlFor={`amount-${member.userId}`}>Amount</Label>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
+                  <span className="label-mono text-muted-foreground">
                     {currency.symbol}
                   </span>
                   <Input
@@ -286,7 +298,7 @@ function MemberTableRow({
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label htmlFor={`note-${member.userId}`}>Note (optional)</Label>
                 <Input
                   id={`note-${member.userId}`}

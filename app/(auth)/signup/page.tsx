@@ -13,19 +13,19 @@ export default async function SignupPage({
   const { next } = await searchParams;
   const safe = safeNextPath(next);
   return (
-    <Card>
+    <Card accent="secondary">
       <CardHeader>
         <CardTitle>Create your account</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         <SignupForm next={safe} />
-        <p className="text-sm text-muted-foreground">
+        <p className="border-t-2 border-foreground/10 pt-4 text-sm text-muted-foreground">
           Already have an account?{' '}
           <Link
             href={safe ? `/login?next=${encodeURIComponent(safe)}` : '/login'}
-            className="font-medium text-foreground underline"
+            className="font-bold text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
           >
-            Sign in
+            Sign in →
           </Link>
         </p>
       </CardContent>

@@ -18,7 +18,7 @@ export function InviteForm({ slug }: { slug: string }) {
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="slug" value={slug} />
       <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
@@ -28,29 +28,33 @@ export function InviteForm({ slug }: { slug: string }) {
             placeholder="teammate@company.com"
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="role">Role</Label>
           <select
             id="role"
             name="role"
             defaultValue="member"
-            className="h-8 rounded-lg border bg-background px-2.5 text-sm"
+            className="h-10 w-full border-2 border-foreground bg-background px-3 text-sm text-foreground transition-shadow focus-visible:bg-card focus-visible:shadow-[3px_3px_0_0_var(--primary)] focus-visible:outline-none"
           >
             <option value="member">Member</option>
             <option value="admin">Admin</option>
           </select>
         </div>
         <div className="flex items-end">
-          <Button type="submit" disabled={pending}>
-            {pending ? 'Sending…' : 'Invite'}
+          <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+            {pending ? 'Sending…' : 'Invite →'}
           </Button>
         </div>
       </div>
       {state.error ? (
-        <p className="text-sm text-destructive">{state.error}</p>
+        <p className="border-2 border-destructive bg-destructive/15 px-3 py-2 text-sm font-bold text-destructive">
+          ⚠ {state.error}
+        </p>
       ) : null}
       {state.success ? (
-        <p className="text-sm text-emerald-600">{state.success}</p>
+        <p className="border-2 border-mint bg-mint/15 px-3 py-2 text-sm font-bold text-mint">
+          ✓ {state.success}
+        </p>
       ) : null}
     </form>
   );

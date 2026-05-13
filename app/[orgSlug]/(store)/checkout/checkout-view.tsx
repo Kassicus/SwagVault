@@ -56,14 +56,17 @@ export function CheckoutView({
   }, [cart, slug]);
 
   if (items === null) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <p className="label-mono text-muted-foreground">Loading…</p>;
   }
   if (items.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
+        <PageHeader />
         <p className="text-sm text-muted-foreground">Your cart is empty.</p>
-        <Link href={`/${slug}`} className="text-sm underline">
+        <Link
+          href={`/${slug}`}
+          className="label-mono text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
+        >
           ← Back to store
         </Link>
       </div>
@@ -112,16 +115,18 @@ export function CheckoutView({
 
   return (
     <div className="grid gap-8 md:grid-cols-[1fr_360px]">
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
+      <div className="space-y-8">
+        <PageHeader />
 
         {fulfillmentMode === 'both' ? (
           <FulfillmentSwitcher value={method} onChange={setMethod} />
         ) : null}
 
         {method === 'shipping' ? (
-          <section className="space-y-3">
-            <h2 className="text-sm font-medium">Shipping address</h2>
+          <section className="space-y-4">
+            <h2 className="font-heading text-lg font-bold uppercase">
+              Shipping address
+            </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field
                 id="recipient"
@@ -174,36 +179,46 @@ export function CheckoutView({
             </div>
           </section>
         ) : (
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium">Pickup</h2>
-            <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+          <section className="space-y-3">
+            <h2 className="font-heading text-lg font-bold uppercase">Pickup</h2>
+            <p className="border-2 border-foreground bg-muted p-4 text-sm text-muted-foreground">
               Items will be picked up at your organization&rsquo;s designated
               location.
             </p>
           </section>
         )}
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p className="border-2 border-destructive bg-destructive/15 px-3 py-2 text-sm font-bold text-destructive">
+            ⚠ {error}
+          </p>
+        ) : null}
 
-        <div className="flex items-center gap-3">
-          <Button onClick={handlePlace} disabled={submitting || hasUnavailable}>
-            {submitting ? 'Placing order…' : 'Place order'}
+        <div className="flex items-center gap-4">
+          <Button
+            size="lg"
+            onClick={handlePlace}
+            disabled={submitting || hasUnavailable}
+          >
+            {submitting ? 'Placing order…' : 'Place order →'}
           </Button>
           <Link
             href={`/${slug}/cart`}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="label-mono text-muted-foreground hover:text-foreground"
           >
             ← Back to cart
           </Link>
         </div>
       </div>
 
-      <aside className="space-y-3 rounded-lg border p-4">
-        <h2 className="text-sm font-medium">Order summary</h2>
-        <ul className="space-y-3">
+      <aside className="space-y-4 border-2 border-foreground bg-card p-5 shadow-[5px_5px_0_0_var(--secondary)] md:sticky md:top-6 md:self-start">
+        <h2 className="font-heading text-xl font-bold uppercase">
+          Order summary
+        </h2>
+        <ul className="space-y-3 border-t-2 border-foreground/10 pt-4">
           {items.map((i) => (
             <li key={i.variantId} className="flex gap-3">
-              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded border bg-muted/30">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden border-2 border-foreground bg-muted">
                 {i.imagePath ? (
                   <Image
                     src={i.imagePath}
@@ -215,15 +230,17 @@ export function CheckoutView({
                 ) : null}
               </div>
               <div className="flex-1 text-sm">
-                <div className="font-medium">{i.productName}</div>
+                <div className="font-heading font-bold uppercase text-xs leading-tight">
+                  {i.productName}
+                </div>
                 {i.variantDisplay && i.variantDisplay !== 'default' ? (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="label-mono text-muted-foreground">
                     {i.variantDisplay}
                   </div>
                 ) : null}
-                <div className="text-xs text-muted-foreground">× {i.qty}</div>
+                <div className="label-mono text-muted-foreground">× {i.qty}</div>
               </div>
-              <div className="text-sm font-medium tabular-nums">
+              <div className="font-heading text-sm font-bold tabular-nums">
                 <Money
                   amount={i.unitPriceMinorUnits * i.qty}
                   currency={currency}
@@ -232,11 +249,24 @@ export function CheckoutView({
             </li>
           ))}
         </ul>
-        <div className="flex items-center justify-between border-t pt-3 text-sm font-medium">
-          <span>Total</span>
-          <Money amount={total} currency={currency} />
+        <div className="flex items-center justify-between border-t-2 border-foreground pt-3">
+          <span className="label-mono">Total</span>
+          <span className="font-heading text-2xl font-black tabular-nums">
+            <Money amount={total} currency={currency} />
+          </span>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function PageHeader() {
+  return (
+    <div>
+      <p className="label-mono text-muted-foreground">{'// Final step'}</p>
+      <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+        Checkout
+      </h1>
     </div>
   );
 }
@@ -249,26 +279,32 @@ function FulfillmentSwitcher({
   onChange: (v: FulfillmentMethod) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-3">
       {(['pickup', 'shipping'] as const).map((m) => (
         <button
           key={m}
           type="button"
           onClick={() => onChange(m)}
           aria-pressed={value === m}
-          className={`rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+          className={`border-2 border-foreground px-4 py-3 text-left transition-all ${
             value === m
-              ? 'border-foreground bg-muted/40'
-              : 'border-border hover:bg-muted/30'
+              ? 'bg-primary text-primary-foreground shadow-[3px_3px_0_0_var(--foreground)]'
+              : 'bg-card hover:bg-muted'
           }`}
         >
-          <div className="font-medium">
-            {m === 'pickup' ? 'Pick up at office' : 'Ship to me'}
+          <div className="font-heading text-sm font-bold uppercase">
+            {m === 'pickup' ? 'Pick up' : 'Ship to me'}
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div
+            className={`mt-1 text-xs ${
+              value === m
+                ? 'text-primary-foreground/70'
+                : 'text-muted-foreground'
+            }`}
+          >
             {m === 'pickup'
-              ? 'Grab it from your org’s pickup spot.'
-              : 'Enter an address for delivery.'}
+              ? 'Grab it from your office.'
+              : 'Enter an address.'}
           </div>
         </button>
       ))}
@@ -295,7 +331,7 @@ function Field({
     <div className="space-y-1.5">
       <Label htmlFor={id}>
         {label}
-        {required ? <span className="text-destructive"> *</span> : null}
+        {required ? <span className="text-secondary"> *</span> : null}
       </Label>
       <Input
         id={id}

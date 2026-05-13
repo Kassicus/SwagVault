@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth/session';
 import { getOrgCurrency } from '@/lib/currency/server';
@@ -22,9 +23,19 @@ export default async function EditProductPage({
   if (!product) notFound();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">{product.name}</h1>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link
+            href={`/${orgSlug}/admin/products`}
+            className="label-mono text-muted-foreground hover:text-foreground"
+          >
+            ← All products
+          </Link>
+          <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+            {product.name}
+          </h1>
+        </div>
         <form action={deleteProductAction}>
           <input type="hidden" name="slug" value={orgSlug} />
           <input type="hidden" name="product_id" value={product.id} />

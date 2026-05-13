@@ -13,19 +13,19 @@ export default async function LoginPage({
   const { next } = await searchParams;
   const safe = safeNextPath(next);
   return (
-    <Card>
+    <Card accent="primary">
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         <LoginForm next={safe} />
-        <p className="text-sm text-muted-foreground">
+        <p className="border-t-2 border-foreground/10 pt-4 text-sm text-muted-foreground">
           New to SwagVault?{' '}
           <Link
             href={safe ? `/signup?next=${encodeURIComponent(safe)}` : '/signup'}
-            className="font-medium text-foreground underline"
+            className="font-bold text-foreground underline decoration-secondary decoration-2 underline-offset-4 hover:text-secondary"
           >
-            Create an organization
+            Create an organization →
           </Link>
         </p>
       </CardContent>

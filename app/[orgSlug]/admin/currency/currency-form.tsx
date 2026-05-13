@@ -38,16 +38,14 @@ export function CurrencyForm({
   const [decimals, setDecimals] = useState(initial.decimal_places);
 
   const sampleAmount = 10 ** (decimals + 3) + 56 * 10 ** Math.max(0, decimals - 2);
-  // 0 dp: 1056 → "★1,056"
-  // 2 dp: 100056 → "$1,000.56"
 
   return (
-    <form action={action} className="grid gap-6 md:grid-cols-[1fr_240px]">
+    <form action={action} className="grid gap-6 md:grid-cols-[1fr_280px]">
       <input type="hidden" name="slug" value={slug} />
 
-      <div className="space-y-4">
+      <div className="space-y-5 border-2 border-foreground bg-card p-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="name">Currency name</Label>
             <Input
               id="name"
@@ -58,7 +56,7 @@ export function CurrencyForm({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="symbol">Symbol</Label>
             <Input
               id="symbol"
@@ -72,7 +70,7 @@ export function CurrencyForm({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="color_hex">Color</Label>
             <div className="flex items-center gap-2">
               <input
@@ -81,7 +79,7 @@ export function CurrencyForm({
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="h-8 w-12 cursor-pointer rounded border bg-background"
+                className="h-10 w-14 cursor-pointer border-2 border-foreground bg-background p-1"
               />
               <Input
                 value={color}
@@ -91,14 +89,14 @@ export function CurrencyForm({
               />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="decimal_places">Decimal places</Label>
             <select
               id="decimal_places"
               name="decimal_places"
               value={decimals}
               onChange={(e) => setDecimals(Number(e.target.value))}
-              className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm"
+              className="h-10 w-full border-2 border-foreground bg-background px-3 text-sm text-foreground transition-shadow focus-visible:bg-card focus-visible:shadow-[3px_3px_0_0_var(--primary)] focus-visible:outline-none"
             >
               <option value={0}>0 — whole units (★1,056)</option>
               <option value={2}>2 — like dollars and cents ($10.56)</option>
@@ -108,38 +106,40 @@ export function CurrencyForm({
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="icon">Icon (optional)</Label>
           <input
             id="icon"
             name="icon"
             type="file"
             accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            className="block w-full text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-1 file:text-sm hover:file:bg-muted"
+            className="block w-full text-sm text-muted-foreground file:mr-3 file:border-2 file:border-foreground file:bg-card file:px-3 file:py-1.5 file:font-mono file:text-[10px] file:font-bold file:uppercase file:tracking-wider file:text-foreground hover:file:bg-muted"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="label-mono text-muted-foreground">
             PNG, JPEG, WebP, or SVG. Up to 2MB. Square images render best.
           </p>
         </div>
 
         {state.error ? (
-          <p className="text-sm text-destructive">{state.error}</p>
+          <p className="border-2 border-destructive bg-destructive/15 px-3 py-2 text-sm font-bold text-destructive">
+            ⚠ {state.error}
+          </p>
         ) : null}
         {state.success ? (
-          <p className="text-sm text-emerald-600">Currency updated.</p>
+          <p className="border-2 border-mint bg-mint/15 px-3 py-2 text-sm font-bold text-mint">
+            ✓ Currency updated.
+          </p>
         ) : null}
 
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} size="lg">
           {pending ? 'Saving…' : 'Save currency'}
         </Button>
       </div>
 
       <aside className="space-y-3">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-          Preview
-        </div>
+        <div className="label-mono text-muted-foreground">Preview</div>
         <div
-          className="space-y-3 rounded-lg border p-4"
+          className="space-y-3 border-2 bg-card p-5 shadow-[5px_5px_0_0_var(--foreground)]"
           style={{ borderColor: color }}
         >
           <div className="flex items-center gap-2">
@@ -147,21 +147,23 @@ export function CurrencyForm({
               <Image
                 src={initial.icon_url}
                 alt=""
-                width={20}
-                height={20}
-                className="rounded"
+                width={24}
+                height={24}
+                className="border-2 border-foreground"
               />
             ) : (
               <div
-                className="grid h-5 w-5 place-items-center rounded text-xs font-medium text-white"
+                className="grid size-6 place-items-center border-2 border-foreground text-xs font-bold text-black"
                 style={{ backgroundColor: color }}
               >
                 {symbol.slice(0, 1)}
               </div>
             )}
-            <div className="text-sm font-medium">{name || 'Currency'}</div>
+            <div className="font-heading text-sm font-bold uppercase">
+              {name || 'Currency'}
+            </div>
           </div>
-          <div className="text-xl font-semibold tabular-nums">
+          <div className="font-heading text-3xl font-black tabular-nums">
             {formatAmount(sampleAmount, {
               name,
               symbol,

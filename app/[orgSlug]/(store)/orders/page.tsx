@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 import { requireOrg } from '@/lib/auth/session';
 import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
@@ -20,50 +21,62 @@ export default async function OrdersPage({
 
   if (orders.length === 0) {
     return (
-      <div className="max-w-2xl space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">My orders</h1>
-        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          You haven&rsquo;t placed any orders yet.
-        </p>
+      <div className="max-w-2xl space-y-6">
+        <PageHeader />
+        <div className="border-2 border-dashed border-foreground/40 p-10 text-center">
+          <p className="font-heading text-2xl font-bold uppercase">
+            Nothing here yet.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Spend some coins and your orders will show up here.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">My orders</h1>
-      <div className="overflow-hidden rounded-lg border">
+    <div className="max-w-3xl space-y-6">
+      <PageHeader />
+      <div className="overflow-hidden border-2 border-foreground bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
             <tr>
-              <th className="px-4 py-2 font-normal">Placed</th>
-              <th className="px-4 py-2 font-normal">Total</th>
-              <th className="px-4 py-2 font-normal">Status</th>
-              <th className="px-4 py-2 font-normal">Fulfillment</th>
-              <th className="px-4 py-2"></th>
+              <th className="px-4 py-3 font-bold">Placed</th>
+              <th className="px-4 py-3 font-bold">Total</th>
+              <th className="px-4 py-3 font-bold">Status</th>
+              <th className="px-4 py-3 font-bold">Fulfillment</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => (
-              <tr key={o.id} className="border-b last:border-0">
+            {orders.map((o, idx) => (
+              <tr
+                key={o.id}
+                className={
+                  idx === orders.length - 1
+                    ? ''
+                    : 'border-b-2 border-foreground/10'
+                }
+              >
                 <td className="px-4 py-3 text-muted-foreground">
                   {new Date(o.created_at).toLocaleDateString()}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 font-heading font-bold tabular-nums">
                   <Money amount={o.total_minor_units} currency={currency} />
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={o.status} />
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
+                <td className="px-4 py-3 label-mono text-muted-foreground">
                   {o.fulfillment_method === 'shipping' ? 'Ship' : 'Pickup'}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link
                     href={`/${orgSlug}/orders/${o.id}`}
-                    className="text-sm underline"
+                    className="label-mono text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
                   >
-                    View
+                    View →
                   </Link>
                 </td>
               </tr>
@@ -75,17 +88,23 @@ export default async function OrdersPage({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-900',
-    fulfilled: 'bg-emerald-100 text-emerald-900',
-    cancelled: 'bg-zinc-200 text-zinc-700 line-through',
-  };
+function PageHeader() {
   return (
-    <span
-      className={`inline-block rounded px-2 py-0.5 text-xs ${map[status] ?? ''}`}
-    >
-      {status}
-    </span>
+    <div>
+      <p className="label-mono text-muted-foreground">{'// History'}</p>
+      <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+        My orders
+      </h1>
+    </div>
   );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const variant =
+    status === 'pending'
+      ? 'warn'
+      : status === 'fulfilled'
+        ? 'mint'
+        : 'muted';
+  return <Badge variant={variant}>{status}</Badge>;
 }

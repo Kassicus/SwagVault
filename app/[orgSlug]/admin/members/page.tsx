@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getOrgCurrency } from '@/lib/currency/server';
+import { Badge } from '@/components/ui/badge';
 import { InviteForm } from './invite-form';
 import { MemberManager, type MemberRow } from './member-manager';
 
@@ -31,7 +32,6 @@ export default async function MembersPage({
     getOrgCurrency(ctx.organizationId),
   ]);
 
-  // Hydrate member emails via the admin API.
   const members: MemberRow[] = [];
   for (const m of memberships ?? []) {
     const { data } = await service.auth.admin.getUserById(m.user_id);
@@ -44,18 +44,25 @@ export default async function MembersPage({
   }
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-10">
+      <div>
+        <p className="label-mono text-muted-foreground">{'// Team'}</p>
+        <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+          Members
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           Invite teammates to {ctx.organization.name} and grant them{' '}
           {currency.name}.
         </p>
       </div>
 
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-sm font-medium">Invite a new member</h2>
-        <InviteForm slug={orgSlug} />
+      <section className="border-2 border-foreground bg-card p-5 shadow-[5px_5px_0_0_var(--secondary)]">
+        <h2 className="font-heading text-lg font-bold uppercase">
+          Invite a new member
+        </h2>
+        <div className="mt-4">
+          <InviteForm slug={orgSlug} />
+        </div>
       </section>
 
       <MemberManager
@@ -69,23 +76,34 @@ export default async function MembersPage({
       />
 
       {(invites ?? []).length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">Pending invites</h2>
-          <div className="rounded-lg border">
+        <section className="space-y-4">
+          <h2 className="font-heading text-xl font-bold uppercase">
+            Pending invites
+          </h2>
+          <div className="overflow-hidden border-2 border-foreground bg-card">
             <table className="w-full text-sm">
-              <thead className="border-b text-left text-muted-foreground">
+              <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 font-normal">Email</th>
-                  <th className="px-4 py-2 font-normal">Role</th>
-                  <th className="px-4 py-2 font-normal">Expires</th>
+                  <th className="px-4 py-3 font-bold">Email</th>
+                  <th className="px-4 py-3 font-bold">Role</th>
+                  <th className="px-4 py-3 font-bold">Expires</th>
                 </tr>
               </thead>
               <tbody>
-                {(invites ?? []).map((i) => (
-                  <tr key={i.id} className="border-b last:border-0">
-                    <td className="px-4 py-2">{i.email}</td>
-                    <td className="px-4 py-2">{i.role}</td>
-                    <td className="px-4 py-2">
+                {(invites ?? []).map((i, idx) => (
+                  <tr
+                    key={i.id}
+                    className={
+                      idx === (invites ?? []).length - 1
+                        ? ''
+                        : 'border-b-2 border-foreground/10'
+                    }
+                  >
+                    <td className="px-4 py-3">{i.email}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant="outline">{i.role}</Badge>
+                    </td>
+                    <td className="px-4 py-3 label-mono text-muted-foreground">
                       {new Date(i.expires_at).toLocaleDateString()}
                     </td>
                   </tr>
