@@ -26,6 +26,8 @@ export default async function AdminLayout({
               <Link href={`/${orgSlug}/admin/orders`}>Orders</Link>
               <Link href={`/${orgSlug}/admin/members`}>Members</Link>
               <Link href={`/${orgSlug}/admin/currency`}>Currency</Link>
+              <Link href={`/${orgSlug}/admin/audit-log`}>Audit log</Link>
+              <Link href={`/${orgSlug}/admin/settings`}>Settings</Link>
               <Link href={`/${orgSlug}/admin/billing`}>Billing</Link>
               <Link
                 href={`/${orgSlug}`}

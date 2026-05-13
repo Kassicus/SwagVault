@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { BotIdShield } from '@/components/botid-shield';
 import {
   createSupabaseServerClient,
   createSupabaseServiceClient,
@@ -41,6 +42,7 @@ export default async function AcceptInvitePage({
 
   return (
     <main className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center px-6 py-12">
+      <BotIdShield />
       <Card className="w-full">
         <CardHeader>
           <CardTitle>

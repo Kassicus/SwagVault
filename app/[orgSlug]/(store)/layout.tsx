@@ -42,6 +42,9 @@ export default async function StoreLayout({
               <CartLink slug={orgSlug} orgId={ctx.organizationId} />
               <Link href={`/${orgSlug}/orders`}>My orders</Link>
               <Link href={`/${orgSlug}/account`}>My account</Link>
+              {ctx.organization.leaderboard_enabled ? (
+                <Link href={`/${orgSlug}/leaderboard`}>Leaderboard</Link>
+              ) : null}
               {showAdminLink ? (
                 <Link
                   href={`/${orgSlug}/admin`}

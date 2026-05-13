@@ -3,6 +3,7 @@ import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { listUserTransactions } from '@/lib/orders/server';
+import { setLeaderboardVisibilityAction } from './actions';
 
 export const metadata = { title: 'My account · SwagVault' };
 
@@ -18,11 +19,12 @@ export default async function AccountPage({
   const supabase = await createSupabaseServerClient();
   const { data: membership } = await supabase
     .from('memberships')
-    .select('balance_minor_units')
+    .select('balance_minor_units, leaderboard_visible')
     .eq('organization_id', ctx.organizationId)
     .eq('user_id', ctx.userId)
     .single();
   const balance = membership?.balance_minor_units ?? 0;
+  const leaderboardVisible = membership?.leaderboard_visible ?? true;
 
   const transactions = await listUserTransactions(
     ctx.organizationId,
@@ -47,6 +49,32 @@ export default async function AccountPage({
           </span>
         </div>
       </section>
+
+      {ctx.organization.leaderboard_enabled ? (
+        <section className="rounded-lg border p-4">
+          <h2 className="text-sm font-medium">Leaderboard preferences</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            When the leaderboard is on, your total spend over the last 30 days
+            is visible to your teammates. Toggle this off to opt out.
+          </p>
+          <form action={setLeaderboardVisibilityAction} className="mt-3">
+            <input type="hidden" name="slug" value={orgSlug} />
+            <input
+              type="hidden"
+              name="visible"
+              value={leaderboardVisible ? 'false' : 'true'}
+            />
+            <button
+              type="submit"
+              className="text-sm underline hover:text-foreground"
+            >
+              {leaderboardVisible
+                ? 'Hide me from the leaderboard'
+                : 'Show me on the leaderboard'}
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Recent activity</h2>
