@@ -10,11 +10,11 @@ export default function AdminProductsLoading() {
         </div>
         <Skeleton className="h-8 w-28" />
       </div>
-      <div className="rounded-lg border">
+      <div className="border-2 border-foreground">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-center gap-4 border-b px-4 py-3 last:border-0"
+            className="flex items-center gap-4 border-b-2 border-foreground/10 px-4 py-3 last:border-0"
           >
             <Skeleton className="h-10 w-10 rounded" />
             <Skeleton className="h-4 w-40" />

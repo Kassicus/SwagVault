@@ -1,3 +1,5 @@
+import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
 import { requireOrg } from '@/lib/auth/session';
 import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
@@ -32,32 +34,58 @@ export default async function AccountPage({
   );
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">My account</h1>
+    <div className="max-w-2xl space-y-8">
+      <div>
+        <p className="label-mono text-muted-foreground">{'// Account'}</p>
+        <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+          My account
+        </h1>
+      </div>
 
       <section
-        className="rounded-lg border p-5"
-        style={{ borderColor: currency.color_hex }}
+        className="relative border-2 border-foreground bg-card p-6 shadow-[5px_5px_0_0_var(--primary)]"
       >
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-          Balance
-        </div>
-        <div className="mt-1 text-3xl font-semibold">
-          <Money amount={balance} currency={currency} />{' '}
-          <span className="text-base font-normal text-muted-foreground">
-            {currency.name}
-          </span>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="label-mono text-muted-foreground">Balance</p>
+            <div className="flex items-baseline gap-2">
+              <span className="font-heading text-5xl font-black tabular-nums">
+                <Money amount={balance} currency={currency} />
+              </span>
+              <span className="label-mono text-muted-foreground">
+                {currency.name}
+              </span>
+            </div>
+          </div>
+          {currency.icon_url ? (
+            <Image
+              src={currency.icon_url}
+              alt=""
+              width={48}
+              height={48}
+              className="border-2 border-foreground"
+            />
+          ) : (
+            <div
+              className="grid size-12 place-items-center border-2 border-foreground font-heading text-xl font-bold text-black"
+              style={{ backgroundColor: currency.color_hex }}
+            >
+              {currency.symbol.slice(0, 1)}
+            </div>
+          )}
         </div>
       </section>
 
       {ctx.organization.leaderboard_enabled ? (
-        <section className="rounded-lg border p-4">
-          <h2 className="text-sm font-medium">Leaderboard preferences</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <section className="space-y-3 border-2 border-foreground bg-card p-5">
+          <h2 className="font-heading text-lg font-bold uppercase">
+            Leaderboard preferences
+          </h2>
+          <p className="text-sm text-muted-foreground">
             When the leaderboard is on, your total spend over the last 30 days
             is visible to your teammates. Toggle this off to opt out.
           </p>
-          <form action={setLeaderboardVisibilityAction} className="mt-3">
+          <form action={setLeaderboardVisibilityAction}>
             <input type="hidden" name="slug" value={orgSlug} />
             <input
               type="hidden"
@@ -66,48 +94,59 @@ export default async function AccountPage({
             />
             <button
               type="submit"
-              className="text-sm underline hover:text-foreground"
+              className="label-mono text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
             >
               {leaderboardVisible
-                ? 'Hide me from the leaderboard'
-                : 'Show me on the leaderboard'}
+                ? 'Hide me from the leaderboard →'
+                : 'Show me on the leaderboard →'}
             </button>
           </form>
         </section>
       ) : null}
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Recent activity</h2>
+      <section className="space-y-4">
+        <h2 className="font-heading text-xl font-bold uppercase">
+          Recent activity
+        </h2>
         {transactions.length === 0 ? (
-          <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <p className="border-2 border-dashed border-foreground/40 p-6 text-center text-sm text-muted-foreground">
             No transactions yet.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-hidden border-2 border-foreground bg-card">
             <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 font-normal">Date</th>
-                  <th className="px-4 py-2 font-normal">Type</th>
-                  <th className="px-4 py-2 font-normal">Note</th>
-                  <th className="px-4 py-2 text-right font-normal">Amount</th>
+                  <th className="px-4 py-3 font-bold">Date</th>
+                  <th className="px-4 py-3 font-bold">Type</th>
+                  <th className="px-4 py-3 font-bold">Note</th>
+                  <th className="px-4 py-3 text-right font-bold">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((tx) => {
+                {transactions.map((tx, idx) => {
                   const isNeg = tx.amount_minor_units < 0;
                   return (
-                    <tr key={tx.id} className="border-b last:border-0">
-                      <td className="px-4 py-2 text-muted-foreground">
+                    <tr
+                      key={tx.id}
+                      className={
+                        idx === transactions.length - 1
+                          ? ''
+                          : 'border-b-2 border-foreground/10'
+                      }
+                    >
+                      <td className="px-4 py-3 text-muted-foreground">
                         {new Date(tx.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-2">{tx.kind}</td>
-                      <td className="px-4 py-2 text-muted-foreground">
+                      <td className="px-4 py-3">
+                        <Badge variant={isNeg ? 'muted' : 'mint'}>{tx.kind}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
                         {tx.note ?? '—'}
                       </td>
                       <td
-                        className={`px-4 py-2 text-right tabular-nums ${
-                          isNeg ? 'text-foreground' : 'text-emerald-600'
+                        className={`px-4 py-3 text-right font-heading font-bold tabular-nums ${
+                          isNeg ? 'text-foreground' : 'text-mint'
                         }`}
                       >
                         {isNeg ? '−' : '+'}

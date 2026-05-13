@@ -67,7 +67,11 @@ export function OrderActionButtons({
           </form>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="border-2 border-destructive bg-destructive/15 px-3 py-2 text-sm font-bold text-destructive">
+          ⚠ {error}
+        </p>
+      ) : null}
     </div>
   );
 }

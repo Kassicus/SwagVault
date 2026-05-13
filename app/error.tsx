@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 export default function GlobalError({
   error,
@@ -15,9 +16,12 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <main className="flex min-h-svh items-center justify-center px-6 py-12">
-      <div className="max-w-md space-y-4 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">
+    <main className="relative flex min-h-svh items-center justify-center px-6 py-12">
+      <div className="max-w-md space-y-5 text-center">
+        <Badge variant="warn" className="mx-auto">
+          Error
+        </Badge>
+        <h1 className="font-heading text-4xl font-black uppercase tracking-tight">
           Something went wrong
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -25,11 +29,13 @@ export default function GlobalError({
           contact support.
         </p>
         {error.digest ? (
-          <p className="font-mono text-xs text-muted-foreground">
+          <p className="border-2 border-foreground/20 bg-card px-3 py-2 font-mono text-xs text-muted-foreground">
             ref: {error.digest}
           </p>
         ) : null}
-        <Button onClick={() => reset()}>Try again</Button>
+        <Button onClick={() => reset()} size="lg">
+          Try again →
+        </Button>
       </div>
     </main>
   );

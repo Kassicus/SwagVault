@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 import { requireAdmin } from '@/lib/auth/session';
 import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
@@ -39,7 +40,6 @@ export default async function AuditLogPage({
 
   const { data: rows } = await query;
 
-  // Batch-hydrate every distinct user id (recipient + actor).
   const ids = new Set<string>();
   for (const r of rows ?? []) {
     ids.add(r.user_id);
@@ -52,10 +52,13 @@ export default async function AuditLogPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Audit log</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="label-mono text-muted-foreground">{'// History'}</p>
+        <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+          Audit log
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           Every {currency.name} transaction in {ctx.organization.name}, including
           who initiated it. Showing the most recent {PAGE_SIZE}.
         </p>
@@ -68,8 +71,8 @@ export default async function AuditLogPage({
             href={f === 'all' ? `/${orgSlug}/admin/audit-log` : `/${orgSlug}/admin/audit-log?kind=${f}`}
             className={
               filter === f
-                ? 'rounded-full bg-foreground px-3 py-1 text-xs font-medium text-background'
-                : 'rounded-full border px-3 py-1 text-xs text-muted-foreground hover:text-foreground'
+                ? 'border-2 border-foreground bg-foreground px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-background'
+                : 'border-2 border-foreground bg-transparent px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted hover:text-foreground'
             }
           >
             {f}
@@ -78,38 +81,47 @@ export default async function AuditLogPage({
       </div>
 
       {(rows ?? []).length === 0 ? (
-        <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+        <div className="border-2 border-dashed border-foreground/40 p-10 text-center text-sm text-muted-foreground">
           No {filter === 'all' ? 'transactions' : `${filter} transactions`} yet.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-hidden border-2 border-foreground bg-card">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
               <tr>
-                <th className="px-4 py-2 font-normal">When</th>
-                <th className="px-4 py-2 font-normal">Kind</th>
-                <th className="px-4 py-2 font-normal">Member</th>
-                <th className="px-4 py-2 text-right font-normal">Amount</th>
-                <th className="px-4 py-2 font-normal">Actor</th>
-                <th className="px-4 py-2 font-normal">Note / order</th>
+                <th className="px-4 py-3 font-bold">When</th>
+                <th className="px-4 py-3 font-bold">Kind</th>
+                <th className="px-4 py-3 font-bold">Member</th>
+                <th className="px-4 py-3 text-right font-bold">Amount</th>
+                <th className="px-4 py-3 font-bold">Actor</th>
+                <th className="px-4 py-3 font-bold">Note / order</th>
               </tr>
             </thead>
             <tbody>
-              {(rows ?? []).map((r) => {
+              {(rows ?? []).map((r, idx) => {
                 const isNeg = r.amount_minor_units < 0;
                 return (
-                  <tr key={r.id} className="border-b last:border-0">
-                    <td className="px-4 py-2 text-muted-foreground tabular-nums">
+                  <tr
+                    key={r.id}
+                    className={
+                      idx === (rows ?? []).length - 1
+                        ? ''
+                        : 'border-b-2 border-foreground/10'
+                    }
+                  >
+                    <td className="px-4 py-3 text-muted-foreground tabular-nums">
                       {new Date(r.created_at).toLocaleString(undefined, {
                         dateStyle: 'short',
                         timeStyle: 'short',
                       })}
                     </td>
-                    <td className="px-4 py-2">{r.kind}</td>
-                    <td className="px-4 py-2">{emails[r.user_id]}</td>
+                    <td className="px-4 py-3">
+                      <KindBadge kind={r.kind} />
+                    </td>
+                    <td className="px-4 py-3">{emails[r.user_id]}</td>
                     <td
-                      className={`px-4 py-2 text-right tabular-nums ${
-                        isNeg ? 'text-foreground' : 'text-emerald-600'
+                      className={`px-4 py-3 text-right font-heading font-bold tabular-nums ${
+                        isNeg ? 'text-foreground' : 'text-mint'
                       }`}
                     >
                       {isNeg ? '−' : '+'}
@@ -118,14 +130,14 @@ export default async function AuditLogPage({
                         currency={currency}
                       />
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {r.actor_user_id ? emails[r.actor_user_id] : '—'}
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {r.order_id ? (
                         <Link
                           href={`/${orgSlug}/admin/orders/${r.order_id}`}
-                          className="underline"
+                          className="text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
                         >
                           {r.note ?? 'Order'}
                         </Link>
@@ -142,4 +154,16 @@ export default async function AuditLogPage({
       )}
     </div>
   );
+}
+
+function KindBadge({ kind }: { kind: string }) {
+  const variant =
+    kind === 'grant'
+      ? 'mint'
+      : kind === 'spend'
+        ? 'muted'
+        : kind === 'refund'
+          ? 'primary'
+          : 'outline';
+  return <Badge variant={variant}>{kind}</Badge>;
 }

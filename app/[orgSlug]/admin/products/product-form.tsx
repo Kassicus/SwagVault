@@ -204,8 +204,8 @@ export function ProductForm({ slug, currency, initial }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-3xl space-y-8">
-      <section className="space-y-4">
-        <div className="space-y-1.5">
+      <section className="space-y-5 border-2 border-foreground bg-card p-5">
+        <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input
             id="name"
@@ -216,18 +216,18 @@ export function ProductForm({ slug, currency, initial }: Props) {
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
           <textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            className="block w-full rounded-lg border bg-background px-2.5 py-2 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="block w-full border-2 border-foreground bg-background px-3 py-2 text-sm text-foreground transition-shadow placeholder:text-muted-foreground/70 focus-visible:bg-card focus-visible:shadow-[3px_3px_0_0_var(--primary)] focus-visible:outline-none"
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="tags">Tags</Label>
           <Input
             id="tags"
@@ -235,7 +235,7 @@ export function ProductForm({ slug, currency, initial }: Props) {
             onChange={(e) => setTags(e.target.value)}
             placeholder="apparel, drinkware"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="label-mono text-muted-foreground">
             Comma-separated. Used for storefront filtering.
           </p>
         </div>
@@ -245,15 +245,16 @@ export function ProductForm({ slug, currency, initial }: Props) {
             type="checkbox"
             checked={active}
             onChange={(e) => setActive(e.target.checked)}
+            className="size-4 accent-primary"
           />
-          <span>Active (visible to members)</span>
+          <span className="label-mono">Active (visible to members)</span>
         </label>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3 border-2 border-foreground bg-card p-5">
         <div className="flex items-center justify-between">
           <Label>Images</Label>
-          <span className="text-xs text-muted-foreground">
+          <span className="label-mono text-muted-foreground">
             {totalImages} / 8
           </span>
         </div>
@@ -289,22 +290,23 @@ export function ProductForm({ slug, currency, initial }: Props) {
               handleAddFiles(e.target.files);
               e.target.value = '';
             }}
-            className="block w-full text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-1 file:text-sm hover:file:bg-muted"
+            className="block w-full text-sm text-muted-foreground file:mr-3 file:border-2 file:border-foreground file:bg-card file:px-3 file:py-1.5 file:font-mono file:text-[10px] file:font-bold file:uppercase file:tracking-wider file:text-foreground hover:file:bg-muted"
           />
         ) : null}
-        <p className="text-xs text-muted-foreground">
+        <p className="label-mono text-muted-foreground">
           PNG, JPEG, or WebP. Up to 5MB each.
         </p>
       </section>
 
-      <section className="space-y-3 rounded-lg border p-4">
-        <label className="flex items-center gap-2 text-sm font-medium">
+      <section className="space-y-4 border-2 border-foreground bg-card p-5">
+        <label className="flex items-center gap-2 text-sm font-bold">
           <input
             type="checkbox"
             checked={hasVariants}
             onChange={(e) => toggleHasVariants(e.target.checked)}
+            className="size-4 accent-primary"
           />
-          <span>This product has variants (sizes, colors, etc.)</span>
+          <span className="label-mono">This product has variants (sizes, colors, etc.)</span>
         </label>
 
         {hasVariants ? (
@@ -335,15 +337,20 @@ export function ProductForm({ slug, currency, initial }: Props) {
         )}
       </section>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="border-2 border-destructive bg-destructive/15 px-3 py-2 text-sm font-bold text-destructive">
+          ⚠ {error}
+        </p>
+      ) : null}
 
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} size="lg">
           {pending ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
         </Button>
         <Button
           type="button"
           variant="outline"
+          size="lg"
           onClick={() => router.push(`/${slug}/admin/products`)}
           disabled={pending}
         >
@@ -370,7 +377,7 @@ function Thumb({
   onRemove: () => void;
 }) {
   return (
-    <div className="relative aspect-square overflow-hidden rounded-lg border">
+    <div className="relative aspect-square overflow-hidden border-2 border-foreground">
       <Image
         src={src}
         alt=""
@@ -383,12 +390,12 @@ function Thumb({
         type="button"
         onClick={onRemove}
         aria-label="Remove image"
-        className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-background/90 text-xs text-foreground shadow"
+        className="absolute right-1 top-1 grid size-6 place-items-center border-2 border-foreground bg-background text-xs font-bold text-foreground hover:bg-secondary hover:text-secondary-foreground"
       >
         ×
       </button>
       {pending ? (
-        <span className="absolute bottom-1 left-1 rounded bg-background/90 px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+        <span className="absolute bottom-1 left-1 border border-foreground bg-mint px-1 font-mono text-[9px] font-bold uppercase tracking-wider text-mint-foreground">
           New
         </span>
       ) : null}
@@ -462,16 +469,14 @@ function VariantRow({
   const previewName = variantLabel(variant) || `Variant ${index + 1}`;
 
   return (
-    <div className="space-y-3 rounded-lg border p-3">
+    <div className="space-y-3 border-2 border-foreground bg-background p-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {previewName}
-        </span>
+        <span className="label-mono text-foreground">{previewName}</span>
         {onRemove ? (
           <button
             type="button"
             onClick={onRemove}
-            className="text-xs text-muted-foreground hover:text-destructive"
+            className="label-mono text-muted-foreground hover:text-destructive"
           >
             Remove
           </button>
@@ -489,7 +494,7 @@ function VariantRow({
           onChange={(e) => onOption('color', e.target.value)}
         />
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">{currency.symbol}</span>
+          <span className="label-mono text-muted-foreground">{currency.symbol}</span>
           <Input
             type="number"
             min={0}
@@ -514,16 +519,17 @@ function VariantRow({
           placeholder="Inventory"
         />
       </div>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <label className="flex items-center gap-2">
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-xs">
           <input
             type="checkbox"
             checked={variant.active}
             onChange={(e) => onChange({ active: e.target.checked })}
+            className="size-4 accent-primary"
           />
-          <span>Active</span>
+          <span className="label-mono">Active</span>
         </label>
-        <span>
+        <span className="label-mono text-muted-foreground">
           Sample:{' '}
           {formatAmount(variant.price_minor_units, {
             name: currency.name,

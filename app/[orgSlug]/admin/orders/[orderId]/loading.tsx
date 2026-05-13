@@ -15,7 +15,7 @@ export default function AdminOrderDetailLoading() {
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-8 w-36" />
       </div>
-      <div className="rounded-lg border p-4 space-y-3">
+      <div className="border-2 border-foreground p-4 space-y-3">
         <Skeleton className="h-4 w-16" />
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="flex gap-3">

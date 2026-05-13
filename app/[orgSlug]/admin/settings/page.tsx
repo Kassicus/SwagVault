@@ -12,10 +12,13 @@ export default async function SettingsPage({
   const ctx = await requireAdmin(orgSlug);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="label-mono text-muted-foreground">{'// Configuration'}</p>
+        <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+          Settings
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           Organization-level configuration for {ctx.organization.name}.
         </p>
       </div>

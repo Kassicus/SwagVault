@@ -34,12 +34,11 @@ export function OrgSetupForm() {
     };
   }, [slug]);
 
-  // If the user clears the slug input, ignore any stale availability result.
   const displayAvailability = slug ? availability : null;
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="space-y-1.5">
+    <form action={formAction} className="space-y-5">
+      <div className="space-y-2">
         <Label htmlFor="name">Organization name</Label>
         <Input
           id="name"
@@ -50,17 +49,19 @@ export function OrgSetupForm() {
           placeholder="Acme Co"
         />
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label htmlFor="slug">URL slug</Label>
-        <div className="flex items-center gap-1 rounded-lg border bg-background px-2.5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-          <span className="text-sm text-muted-foreground">swagvault.com/</span>
+        <div className="flex h-10 items-center border-2 border-foreground bg-background px-3 transition-shadow focus-within:bg-card focus-within:shadow-[3px_3px_0_0_var(--primary)]">
+          <span className="font-mono text-xs text-muted-foreground">
+            swagvault.com/
+          </span>
           <input
             id="slug"
             name="slug"
             required
             value={slug}
             onChange={(e) => setManualSlug(e.target.value.toLowerCase())}
-            className="flex-1 bg-transparent py-1.5 text-sm outline-none"
+            className="flex-1 bg-transparent py-1.5 font-mono text-sm text-foreground outline-none"
             placeholder="acme"
             pattern="[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?"
           />
@@ -68,7 +69,9 @@ export function OrgSetupForm() {
         <SlugStatus availability={displayAvailability} slug={slug} />
       </div>
       {state.error ? (
-        <p className="text-sm text-destructive">{state.error}</p>
+        <p className="border-2 border-destructive bg-destructive/15 px-3 py-2 text-sm font-bold text-destructive">
+          {state.error}
+        </p>
       ) : null}
       <Button
         type="submit"
@@ -77,8 +80,9 @@ export function OrgSetupForm() {
           (displayAvailability !== null && !displayAvailability.available)
         }
         className="w-full"
+        size="lg"
       >
-        {pending ? 'Creating…' : 'Continue to plan'}
+        {pending ? 'Creating…' : 'Continue to plan →'}
       </Button>
     </form>
   );
@@ -93,10 +97,10 @@ function SlugStatus({
 }) {
   if (!slug) return null;
   if (availability === null) {
-    return <p className="text-xs text-muted-foreground">Checking…</p>;
+    return <p className="label-mono text-muted-foreground">Checking…</p>;
   }
   if (availability.available) {
-    return <p className="text-xs text-emerald-600">Available</p>;
+    return <p className="label-mono text-mint">✓ Available</p>;
   }
   const messages: Record<typeof availability.reason, string> = {
     'too-short': 'Too short — needs at least 2 characters.',
@@ -104,5 +108,9 @@ function SlugStatus({
     reserved: 'That slug is reserved.',
     taken: 'That slug is taken.',
   };
-  return <p className="text-xs text-destructive">{messages[availability.reason]}</p>;
+  return (
+    <p className="label-mono text-destructive">
+      ✗ {messages[availability.reason]}
+    </p>
+  );
 }

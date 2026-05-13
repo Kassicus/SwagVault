@@ -30,35 +30,29 @@ export default async function AdminDashboard({
     activeProductRes,
     topItemsRes,
   ] = await Promise.all([
-    // Total spend: sum of |amount| where kind='spend'
     service
       .from('transactions')
       .select('amount_minor_units')
       .eq('organization_id', ctx.organizationId)
       .eq('kind', 'spend'),
-    // Outstanding balance: sum of memberships.balance
     service
       .from('memberships')
       .select('balance_minor_units')
       .eq('organization_id', ctx.organizationId),
-    // Pending orders count
     service
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', ctx.organizationId)
       .eq('status', 'pending'),
-    // Member count
     service
       .from('memberships')
       .select('user_id', { count: 'exact', head: true })
       .eq('organization_id', ctx.organizationId),
-    // Active product count
     service
       .from('products')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', ctx.organizationId)
       .eq('active', true),
-    // Top products: fetch non-cancelled order items joined to orders, aggregate in JS.
     service
       .from('order_items')
       .select(
@@ -108,72 +102,88 @@ export default async function AdminDashboard({
     .slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="label-mono text-muted-foreground">{'// Overview'}</p>
+        <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+          Dashboard
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           {ctx.organization.name}
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
+          accent="primary"
           label="Total spend"
           value={<Money amount={totalSpend} currency={currency} />}
           sub={currency.name}
         />
         <Stat
-          label="Outstanding balance"
+          accent="secondary"
+          label="Outstanding"
           value={<Money amount={outstandingBalance} currency={currency} />}
-          sub={`across ${memberCount} ${memberCount === 1 ? 'member' : 'members'}`}
+          sub={`${memberCount} ${memberCount === 1 ? 'member' : 'members'}`}
         />
         <Stat
+          accent="mint"
           label="Pending orders"
           value={String(pendingOrders)}
           href={`/${orgSlug}/admin/orders`}
         />
         <Stat
+          accent="foreground"
           label="Active products"
           value={String(activeProducts)}
           href={`/${orgSlug}/admin/products`}
         />
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Top products</h2>
+      <section className="space-y-4">
+        <h2 className="font-heading text-xl font-bold uppercase">Top products</h2>
         {topProducts.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <div className="border-2 border-dashed border-foreground/40 p-6 text-center text-sm text-muted-foreground">
             No orders yet.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-hidden border-2 border-foreground bg-card">
             <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 font-normal">Product</th>
-                  <th className="px-4 py-2 text-right font-normal">Units sold</th>
-                  <th className="px-4 py-2 text-right font-normal">Revenue</th>
+                  <th className="px-4 py-3 font-bold">Product</th>
+                  <th className="px-4 py-3 text-right font-bold">Units sold</th>
+                  <th className="px-4 py-3 text-right font-bold">Revenue</th>
                 </tr>
               </thead>
               <tbody>
-                {topProducts.map((p) => (
-                  <tr key={p.productId ?? p.productName} className="border-b last:border-0">
-                    <td className="px-4 py-2">
+                {topProducts.map((p, idx) => (
+                  <tr
+                    key={p.productId ?? p.productName}
+                    className={
+                      idx === topProducts.length - 1
+                        ? ''
+                        : 'border-b-2 border-foreground/10'
+                    }
+                  >
+                    <td className="px-4 py-3">
                       {p.productId ? (
                         <Link
                           href={`/${orgSlug}/admin/products/${p.productId}`}
-                          className="hover:underline"
+                          className="font-bold hover:text-primary"
                         >
                           {p.productName}
                         </Link>
                       ) : (
-                        <span className="text-muted-foreground">
-                          {p.productName} (deleted)
+                        <span className="text-muted-foreground line-through">
+                          {p.productName}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums">{p.qty}</td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-3 text-right font-heading font-bold tabular-nums">
+                      {p.qty}
+                    </td>
+                    <td className="px-4 py-3 text-right font-heading font-bold tabular-nums">
                       <Money amount={p.revenueMinorUnits} currency={currency} />
                     </td>
                   </tr>
@@ -187,37 +197,45 @@ export default async function AdminDashboard({
   );
 }
 
+const accentShadow = {
+  primary: 'shadow-[5px_5px_0_0_var(--primary)]',
+  secondary: 'shadow-[5px_5px_0_0_var(--secondary)]',
+  mint: 'shadow-[5px_5px_0_0_var(--mint)]',
+  foreground: 'shadow-[5px_5px_0_0_var(--foreground)]',
+} as const;
+
 function Stat({
   label,
   value,
   sub,
   href,
+  accent,
 }: {
   label: string;
   value: React.ReactNode;
   sub?: string;
   href?: string;
+  accent: keyof typeof accentShadow;
 }) {
   const body = (
     <>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
+      <p className="label-mono text-muted-foreground">{label}</p>
+      <p className="mt-2 font-heading text-3xl font-black tabular-nums">{value}</p>
       {sub ? (
-        <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>
+        <p className="mt-1 label-mono text-muted-foreground">{sub}</p>
       ) : null}
     </>
   );
+  const cls = `block border-2 border-foreground bg-card p-5 transition-transform ${accentShadow[accent]}`;
   if (href) {
     return (
       <Link
         href={href}
-        className="block rounded-lg border p-4 transition-colors hover:bg-muted/30"
+        className={`${cls} hover:-translate-y-0.5`}
       >
         {body}
       </Link>
     );
   }
-  return <div className="rounded-lg border p-4">{body}</div>;
+  return <div className={cls}>{body}</div>;
 }

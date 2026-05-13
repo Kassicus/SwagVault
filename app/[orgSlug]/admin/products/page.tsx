@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 import { requireAdmin } from '@/lib/auth/session';
 import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
@@ -26,11 +27,14 @@ export default async function AdminProductsPage({
   ]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between gap-3">
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="label-mono text-muted-foreground">{'// Catalog'}</p>
+          <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+            Products
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Items teammates can spend their {currency.name} on.
           </p>
         </div>
@@ -38,31 +42,38 @@ export default async function AdminProductsPage({
           href={`/${orgSlug}/admin/products/new`}
           className={buttonVariants({ size: 'default' })}
         >
-          New product
+          + New product
         </Link>
       </div>
 
       {products.length === 0 ? (
         <EmptyState slug={orgSlug} />
       ) : (
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-hidden border-2 border-foreground bg-card">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
               <tr>
-                <th className="px-4 py-2 font-normal">Product</th>
-                <th className="px-4 py-2 font-normal">Price</th>
-                <th className="px-4 py-2 font-normal">Variants</th>
-                <th className="px-4 py-2 font-normal">Inventory</th>
-                <th className="px-4 py-2 font-normal">Status</th>
+                <th className="px-4 py-3 font-bold">Product</th>
+                <th className="px-4 py-3 font-bold">Price</th>
+                <th className="px-4 py-3 font-bold">Variants</th>
+                <th className="px-4 py-3 font-bold">Inventory</th>
+                <th className="px-4 py-3 font-bold">Status</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
+              {products.map((p, idx) => (
+                <tr
+                  key={p.id}
+                  className={
+                    idx === products.length - 1
+                      ? ''
+                      : 'border-b-2 border-foreground/10'
+                  }
+                >
                   <td className="px-4 py-3">
                     <Link
                       href={`/${orgSlug}/admin/products/${p.id}`}
-                      className="flex items-center gap-3 hover:underline"
+                      className="flex items-center gap-3 hover:text-primary"
                     >
                       {p.image_paths[0] ? (
                         <Image
@@ -70,37 +81,34 @@ export default async function AdminProductsPage({
                           alt=""
                           width={40}
                           height={40}
-                          className="rounded border bg-background object-cover"
+                          className="border-2 border-foreground object-cover"
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded border bg-muted/40" />
+                        <div className="size-10 border-2 border-foreground bg-muted" />
                       )}
-                      <span className="font-medium">{p.name}</span>
+                      <span className="font-bold">{p.name}</span>
                     </Link>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 font-heading font-bold tabular-nums">
                     {isMultiVariant(p) ? (
                       <>
-                        from <Money amount={minPriceMinorUnits(p)} currency={currency} />
+                        <span className="label-mono text-muted-foreground">from</span>{' '}
+                        <Money amount={minPriceMinorUnits(p)} currency={currency} />
                       </>
                     ) : (
                       <Money amount={minPriceMinorUnits(p)} currency={currency} />
                     )}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                  <td className="px-4 py-3 label-mono text-muted-foreground">
                     {isMultiVariant(p) ? `${p.variants.length} variants` : '—'}
                   </td>
-                  <td className="px-4 py-3">{totalInventory(p)}</td>
+                  <td className="px-4 py-3 font-heading font-bold tabular-nums">
+                    {totalInventory(p)}
+                  </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={
-                        p.active
-                          ? 'text-emerald-600'
-                          : 'text-muted-foreground'
-                      }
-                    >
+                    <Badge variant={p.active ? 'mint' : 'muted'}>
                       {p.active ? 'Active' : 'Inactive'}
-                    </span>
+                    </Badge>
                   </td>
                 </tr>
               ))}
@@ -114,15 +122,16 @@ export default async function AdminProductsPage({
 
 function EmptyState({ slug }: { slug: string }) {
   return (
-    <div className="rounded-lg border border-dashed p-10 text-center">
-      <p className="text-sm text-muted-foreground">
-        No products yet.
+    <div className="border-2 border-dashed border-foreground/40 p-12 text-center">
+      <p className="font-heading text-2xl font-bold uppercase">No products yet.</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Add the first thing your team can redeem coins for.
       </p>
       <Link
         href={`/${slug}/admin/products/new`}
-        className={`${buttonVariants({ size: 'default' })} mt-4`}
+        className={`${buttonVariants({ size: 'default' })} mt-5`}
       >
-        Add your first product
+        + Add your first product
       </Link>
     </div>
   );

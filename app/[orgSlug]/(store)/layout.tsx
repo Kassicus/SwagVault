@@ -30,25 +30,28 @@ export default async function StoreLayout({
   const showAdminLink = ctx.role !== 'member';
 
   return (
-    <div className="min-h-svh">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href={`/${orgSlug}`} className="text-sm font-semibold">
+    <div className="relative min-h-svh">
+      <header className="relative z-10 border-b-2 border-foreground bg-background">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
+          <div className="flex items-center gap-8">
+            <Link
+              href={`/${orgSlug}`}
+              className="font-heading text-base font-bold uppercase tracking-tight"
+            >
               {ctx.organization.name}
             </Link>
-            <nav className="flex items-center gap-4 text-sm text-muted-foreground">
-              <Link href={`/${orgSlug}`}>Store</Link>
+            <nav className="flex items-center gap-1 label-mono">
+              <NavLink href={`/${orgSlug}`}>Store</NavLink>
               <CartLink slug={orgSlug} orgId={ctx.organizationId} />
-              <Link href={`/${orgSlug}/orders`}>My orders</Link>
-              <Link href={`/${orgSlug}/account`}>My account</Link>
+              <NavLink href={`/${orgSlug}/orders`}>Orders</NavLink>
+              <NavLink href={`/${orgSlug}/account`}>Account</NavLink>
               {ctx.organization.leaderboard_enabled ? (
-                <Link href={`/${orgSlug}/leaderboard`}>Leaderboard</Link>
+                <NavLink href={`/${orgSlug}/leaderboard`}>Leaderboard</NavLink>
               ) : null}
               {showAdminLink ? (
                 <Link
                   href={`/${orgSlug}/admin`}
-                  className="text-foreground"
+                  className="ml-2 inline-flex border-2 border-foreground bg-secondary px-2 py-1 text-secondary-foreground hover:bg-secondary/90"
                   prefetch={false}
                 >
                   Admin ↗
@@ -58,7 +61,7 @@ export default async function StoreLayout({
           </div>
           <div className="flex items-center gap-3">
             <div
-              className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
+              className="flex items-center gap-2 border-2 px-3 py-1.5"
               style={{ borderColor: currency.color_hex }}
             >
               {currency.icon_url ? (
@@ -67,22 +70,24 @@ export default async function StoreLayout({
                   alt=""
                   width={16}
                   height={16}
-                  className="rounded"
+                  className="rounded-none"
                 />
               ) : (
                 <div
-                  className="grid h-4 w-4 place-items-center rounded text-[10px] font-medium text-white"
+                  className="grid size-5 place-items-center text-[10px] font-bold text-black"
                   style={{ backgroundColor: currency.color_hex }}
                 >
                   {currency.symbol.slice(0, 1)}
                 </div>
               )}
-              <Money amount={balance} currency={currency} />
+              <span className="font-heading text-base font-bold tabular-nums">
+                <Money amount={balance} currency={currency} />
+              </span>
             </div>
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="text-sm text-muted-foreground hover:text-foreground"
+                className="label-mono text-muted-foreground hover:text-foreground"
               >
                 Sign out
               </button>
@@ -90,7 +95,24 @@ export default async function StoreLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="relative z-10 mx-auto max-w-6xl px-6 py-10">{children}</main>
     </div>
+  );
+}
+
+function NavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="px-2 py-1 text-muted-foreground hover:text-foreground"
+    >
+      {children}
+    </Link>
   );
 }

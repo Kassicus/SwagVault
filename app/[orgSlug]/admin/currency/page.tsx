@@ -14,10 +14,13 @@ export default async function CurrencyPage({
   const currency = await getOrgCurrency(ctx.organizationId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Currency</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="label-mono text-muted-foreground">{'// Settings'}</p>
+        <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+          Currency
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           What you call your internal reward currency and how it&rsquo;s
           rendered across the storefront and admin.
         </p>

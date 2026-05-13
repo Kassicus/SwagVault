@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 import { requireAdmin } from '@/lib/auth/session';
 import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
@@ -37,7 +38,6 @@ export default async function AdminOrdersPage({
 
   const { data: orders } = await query;
 
-  // Hydrate buyer emails.
   const buyers: Record<string, string> = {};
   for (const o of orders ?? []) {
     if (buyers[o.user_id]) continue;
@@ -46,10 +46,13 @@ export default async function AdminOrdersPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="label-mono text-muted-foreground">{'// Fulfillment'}</p>
+        <h1 className="mt-2 font-heading text-4xl font-black uppercase tracking-tight">
+          Orders
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           Fulfill or cancel orders. Cancelling refunds the buyer and restores
           inventory.
         </p>
@@ -59,11 +62,15 @@ export default async function AdminOrdersPage({
         {STATUSES.map((s) => (
           <Link
             key={s}
-            href={s === 'pending' ? `/${orgSlug}/admin/orders` : `/${orgSlug}/admin/orders?status=${s}`}
+            href={
+              s === 'pending'
+                ? `/${orgSlug}/admin/orders`
+                : `/${orgSlug}/admin/orders?status=${s}`
+            }
             className={
               status === s
-                ? 'rounded-full bg-foreground px-3 py-1 text-xs font-medium text-background'
-                : 'rounded-full border px-3 py-1 text-xs text-muted-foreground hover:text-foreground'
+                ? 'border-2 border-foreground bg-foreground px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-background'
+                : 'border-2 border-foreground bg-transparent px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted hover:text-foreground'
             }
           >
             {s}
@@ -72,33 +79,40 @@ export default async function AdminOrdersPage({
       </div>
 
       {(orders ?? []).length === 0 ? (
-        <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+        <div className="border-2 border-dashed border-foreground/40 p-10 text-center text-sm text-muted-foreground">
           No orders {status === 'all' ? 'yet' : `with status "${status}"`}.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-hidden border-2 border-foreground bg-card">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
               <tr>
-                <th className="px-4 py-2 font-normal">Placed</th>
-                <th className="px-4 py-2 font-normal">Member</th>
-                <th className="px-4 py-2 font-normal">Total</th>
-                <th className="px-4 py-2 font-normal">Fulfillment</th>
-                <th className="px-4 py-2 font-normal">Status</th>
-                <th className="px-4 py-2"></th>
+                <th className="px-4 py-3 font-bold">Placed</th>
+                <th className="px-4 py-3 font-bold">Member</th>
+                <th className="px-4 py-3 font-bold">Total</th>
+                <th className="px-4 py-3 font-bold">Fulfillment</th>
+                <th className="px-4 py-3 font-bold">Status</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {(orders ?? []).map((o) => (
-                <tr key={o.id} className="border-b last:border-0">
+              {(orders ?? []).map((o, idx) => (
+                <tr
+                  key={o.id}
+                  className={
+                    idx === (orders ?? []).length - 1
+                      ? ''
+                      : 'border-b-2 border-foreground/10'
+                  }
+                >
                   <td className="px-4 py-3 text-muted-foreground">
                     {new Date(o.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">{buyers[o.user_id]}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 font-heading font-bold tabular-nums">
                     <Money amount={o.total_minor_units} currency={currency} />
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                  <td className="px-4 py-3 label-mono text-muted-foreground">
                     {o.fulfillment_method === 'shipping' ? 'Ship' : 'Pickup'}
                   </td>
                   <td className="px-4 py-3">
@@ -107,9 +121,9 @@ export default async function AdminOrdersPage({
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/${orgSlug}/admin/orders/${o.id}`}
-                      className="text-sm underline"
+                      className="label-mono text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
                     >
-                      Open
+                      Open →
                     </Link>
                   </td>
                 </tr>
@@ -123,16 +137,11 @@ export default async function AdminOrdersPage({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-900',
-    fulfilled: 'bg-emerald-100 text-emerald-900',
-    cancelled: 'bg-zinc-200 text-zinc-700 line-through',
-  };
-  return (
-    <span
-      className={`inline-block rounded px-2 py-0.5 text-xs ${map[status] ?? ''}`}
-    >
-      {status}
-    </span>
-  );
+  const variant =
+    status === 'pending'
+      ? 'warn'
+      : status === 'fulfilled'
+        ? 'mint'
+        : 'muted';
+  return <Badge variant={variant}>{status}</Badge>;
 }

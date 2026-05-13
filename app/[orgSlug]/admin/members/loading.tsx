@@ -8,7 +8,7 @@ export default function MembersLoading() {
         <Skeleton className="h-4 w-72" />
       </div>
 
-      <div className="rounded-lg border p-4 space-y-3">
+      <div className="border-2 border-foreground p-4 space-y-3">
         <Skeleton className="h-4 w-44" />
         <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
           <Skeleton className="h-8" />
@@ -17,7 +17,7 @@ export default function MembersLoading() {
         </div>
       </div>
 
-      <div className="rounded-lg border p-4 space-y-3">
+      <div className="border-2 border-foreground p-4 space-y-3">
         <Skeleton className="h-4 w-56" />
         <div className="grid gap-3 md:grid-cols-[1fr_120px_1fr_auto]">
           <Skeleton className="h-8" />
@@ -29,11 +29,11 @@ export default function MembersLoading() {
 
       <div className="space-y-3">
         <Skeleton className="h-4 w-32" />
-        <div className="rounded-lg border">
+        <div className="border-2 border-foreground">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-4 border-b px-4 py-3 last:border-0"
+              className="flex items-center gap-4 border-b-2 border-foreground/10 px-4 py-3 last:border-0"
             >
               <Skeleton className="h-4 w-48" />
               <Skeleton className="h-4 w-16" />
