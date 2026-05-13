@@ -23,6 +23,7 @@ export default async function PDP({
   return (
     <ProductDetail
       slug={orgSlug}
+      orgId={ctx.organizationId}
       product={product}
       activeVariants={activeVariants.map((v) => ({
         id: v.id,
