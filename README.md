@@ -46,7 +46,8 @@ These can't be done from code — run them once and capture the keys in `.env.lo
    - Recurring price #2: $220 USD / year → record id as `STRIPE_PRICE_ANNUAL`
    - Add `STRIPE_SECRET_KEY` (test mode for now). For webhooks, run `stripe listen --forward-to localhost:3000/api/webhooks/stripe` and copy the printed signing secret into `STRIPE_WEBHOOK_SECRET`.
 5. **Create a Resend API key** and add it as `RESEND_API_KEY`. Set `RESEND_FROM_EMAIL` to a verified sender (e.g. `SwagVault <invites@yourdomain.com>` or `onboarding@resend.dev` for dev).
-6. `vercel link` this directory to the Vercel project, then `vercel env pull .env.local` to sync.
+6. **Create a Vercel Blob store** in the Vercel dashboard (Storage → Create → Blob). This auto-injects `BLOB_READ_WRITE_TOKEN` to all environments. Used for currency icons and (later) product images.
+7. `vercel link` this directory to the Vercel project, then `vercel env pull .env.local` to sync.
 
 ## Phase 1 verification
 
