@@ -148,6 +148,62 @@ export type Database = {
         >;
         Relationships: [];
       };
+      products: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          description: string | null;
+          image_paths: string[];
+          tags: string[];
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          description?: string | null;
+          image_paths?: string[];
+          tags?: string[];
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['products']['Insert']>;
+        Relationships: [];
+      };
+      product_variants: {
+        Row: {
+          id: string;
+          product_id: string;
+          organization_id: string;
+          name: string;
+          options: Json;
+          price_minor_units: number;
+          inventory_count: number;
+          position: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          organization_id: string;
+          name: string;
+          options?: Json;
+          price_minor_units?: number;
+          inventory_count?: number;
+          position?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['product_variants']['Insert']
+        >;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
