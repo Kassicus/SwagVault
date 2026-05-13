@@ -302,6 +302,10 @@ export type Database = {
         };
         Returns: string;
       };
+      cancel_order: {
+        Args: { p_order_id: string; p_actor_user_id: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       fulfillment_mode: FulfillmentMode;
