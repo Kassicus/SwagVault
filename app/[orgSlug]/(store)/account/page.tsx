@@ -5,6 +5,7 @@ import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { listUserTransactions } from '@/lib/orders/server';
+import { setLeaderboardVisibilityAction } from './actions';
 
 export const metadata = { title: 'My account · SwagVault' };
 
@@ -20,11 +21,12 @@ export default async function AccountPage({
   const supabase = await createSupabaseServerClient();
   const { data: membership } = await supabase
     .from('memberships')
-    .select('balance_minor_units')
+    .select('balance_minor_units, leaderboard_visible')
     .eq('organization_id', ctx.organizationId)
     .eq('user_id', ctx.userId)
     .single();
   const balance = membership?.balance_minor_units ?? 0;
+  const leaderboardVisible = membership?.leaderboard_visible ?? true;
 
   const transactions = await listUserTransactions(
     ctx.organizationId,
@@ -73,6 +75,34 @@ export default async function AccountPage({
           )}
         </div>
       </section>
+
+      {ctx.organization.leaderboard_enabled ? (
+        <section className="space-y-3 border-2 border-foreground bg-card p-5">
+          <h2 className="font-heading text-lg font-bold uppercase">
+            Leaderboard preferences
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            When the leaderboard is on, your total spend over the last 30 days
+            is visible to your teammates. Toggle this off to opt out.
+          </p>
+          <form action={setLeaderboardVisibilityAction}>
+            <input type="hidden" name="slug" value={orgSlug} />
+            <input
+              type="hidden"
+              name="visible"
+              value={leaderboardVisible ? 'false' : 'true'}
+            />
+            <button
+              type="submit"
+              className="label-mono text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
+            >
+              {leaderboardVisible
+                ? 'Hide me from the leaderboard →'
+                : 'Show me on the leaderboard →'}
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="space-y-4">
         <h2 className="font-heading text-xl font-bold uppercase">

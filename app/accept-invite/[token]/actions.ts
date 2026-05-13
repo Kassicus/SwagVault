@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { checkBotId } from 'botid/server';
 import {
   createSupabaseServerClient,
   createSupabaseServiceClient,
@@ -13,6 +14,11 @@ export async function acceptInviteAction(
   prev: AcceptState,
   formData: FormData,
 ): Promise<AcceptState> {
+  const verification = await checkBotId();
+  if (!verification.isHuman && !verification.bypassed) {
+    return { error: 'Verification failed. Refresh and try again.' };
+  }
+
   const token = String(formData.get('token') ?? '');
   if (!token) return { error: 'Missing invite token.' };
 

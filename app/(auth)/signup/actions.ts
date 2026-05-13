@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { checkBotId } from 'botid/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { safeNextPath } from '@/lib/auth/redirects';
 
@@ -10,6 +11,11 @@ export async function signupAction(
   _prev: SignupState,
   formData: FormData,
 ): Promise<SignupState> {
+  const verification = await checkBotId();
+  if (!verification.isHuman && !verification.bypassed) {
+    return { error: 'Verification failed. Refresh and try again.' };
+  }
+
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   const next = safeNextPath(String(formData.get('next') ?? ''));

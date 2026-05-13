@@ -10,7 +10,13 @@ export type OrgContext = {
   role: Role;
   organization: Pick<
     Database['public']['Tables']['organizations']['Row'],
-    'id' | 'slug' | 'name' | 'subscription_status' | 'fulfillment_mode'
+    | 'id'
+    | 'slug'
+    | 'name'
+    | 'subscription_status'
+    | 'fulfillment_mode'
+    | 'pickup_location'
+    | 'leaderboard_enabled'
   >;
 };
 
@@ -33,7 +39,7 @@ export async function requireOrg(slug: string): Promise<OrgContext> {
   const { data, error } = await supabase
     .from('memberships')
     .select(
-      'role, organization_id, organizations!inner(id, slug, name, subscription_status, fulfillment_mode)',
+      'role, organization_id, organizations!inner(id, slug, name, subscription_status, fulfillment_mode, pickup_location, leaderboard_enabled)',
     )
     .eq('user_id', user.id)
     .eq('organizations.slug', slug)

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BotIdShield } from '@/components/botid-shield';
 import { safeNextPath } from '@/lib/auth/redirects';
 import { SignupForm } from './signup-form';
 
@@ -14,6 +15,7 @@ export default async function SignupPage({
   const safe = safeNextPath(next);
   return (
     <Card accent="secondary">
+      <BotIdShield />
       <CardHeader>
         <CardTitle>Create your account</CardTitle>
       </CardHeader>

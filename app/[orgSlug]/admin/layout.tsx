@@ -50,6 +50,8 @@ export default async function AdminLayout({
           <NavLink href={`/${orgSlug}/admin/orders`}>Orders</NavLink>
           <NavLink href={`/${orgSlug}/admin/members`}>Members</NavLink>
           <NavLink href={`/${orgSlug}/admin/currency`}>Currency</NavLink>
+          <NavLink href={`/${orgSlug}/admin/audit-log`}>Audit log</NavLink>
+          <NavLink href={`/${orgSlug}/admin/settings`}>Settings</NavLink>
           <NavLink href={`/${orgSlug}/admin/billing`}>Billing</NavLink>
         </nav>
       </header>

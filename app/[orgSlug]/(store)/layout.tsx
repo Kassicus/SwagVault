@@ -45,6 +45,9 @@ export default async function StoreLayout({
               <CartLink slug={orgSlug} orgId={ctx.organizationId} />
               <NavLink href={`/${orgSlug}/orders`}>Orders</NavLink>
               <NavLink href={`/${orgSlug}/account`}>Account</NavLink>
+              {ctx.organization.leaderboard_enabled ? (
+                <NavLink href={`/${orgSlug}/leaderboard`}>Leaderboard</NavLink>
+              ) : null}
               {showAdminLink ? (
                 <Link
                   href={`/${orgSlug}/admin`}
