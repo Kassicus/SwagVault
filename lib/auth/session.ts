@@ -1,7 +1,18 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import type { Database, MemberRole } from '@/lib/supabase/types';
 
-export type Role = 'owner' | 'admin' | 'member';
+export type Role = MemberRole;
+
+export type OrgContext = {
+  userId: string;
+  organizationId: string;
+  role: Role;
+  organization: Pick<
+    Database['public']['Tables']['organizations']['Row'],
+    'id' | 'slug' | 'name' | 'subscription_status' | 'fulfillment_mode'
+  >;
+};
 
 export async function getSession() {
   const supabase = await createSupabaseServerClient();
@@ -15,20 +26,37 @@ export async function requireUser() {
   return user;
 }
 
-// Resolves the membership row for the given org slug; redirects if the user
-// is not a member. Returns role + organization_id so callers can branch.
-export async function requireOrg(slug: string): Promise<{
-  userId: string;
-  organizationId: string;
-  role: Role;
-}> {
-  await requireUser();
-  // TODO(phase 1): look up organization by `slug` and the user's membership row.
-  throw new Error(`requireOrg(${slug}) not implemented — wire up in Phase 1`);
+export async function requireOrg(slug: string): Promise<OrgContext> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('memberships')
+    .select(
+      'role, organization_id, organizations!inner(id, slug, name, subscription_status, fulfillment_mode)',
+    )
+    .eq('user_id', user.id)
+    .eq('organizations.slug', slug)
+    .maybeSingle();
+
+  if (error || !data) {
+    // proxy.ts should have caught this; defensive 404 if a route is reached
+    // through a path the matcher missed.
+    redirect('/');
+  }
+
+  const organization = data.organizations as unknown as OrgContext['organization'];
+
+  return {
+    userId: user.id,
+    organizationId: data.organization_id,
+    role: data.role,
+    organization,
+  };
 }
 
-export async function requireAdmin(slug: string) {
-  const m = await requireOrg(slug);
-  if (m.role === 'member') redirect(`/${slug}`);
-  return m;
+export async function requireAdmin(slug: string): Promise<OrgContext> {
+  const ctx = await requireOrg(slug);
+  if (ctx.role === 'member') redirect(`/${slug}`);
+  return ctx;
 }
