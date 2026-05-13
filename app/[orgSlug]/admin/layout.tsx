@@ -23,6 +23,7 @@ export default async function AdminLayout({
             <nav className="flex items-center gap-4 text-sm text-muted-foreground">
               <Link href={`/${orgSlug}/admin`}>Dashboard</Link>
               <Link href={`/${orgSlug}/admin/members`}>Members</Link>
+              <Link href={`/${orgSlug}/admin/currency`}>Currency</Link>
               <Link href={`/${orgSlug}/admin/billing`}>Billing</Link>
               <Link
                 href={`/${orgSlug}`}
