@@ -39,11 +39,18 @@ export async function placeOrderAction(input: {
     };
   }
 
+  // The SQL place_order RPC reads each element with `i->>'variant_id'`, so
+  // the JSON keys must be snake_case. Our TS shape is camelCase — map here.
+  const rpcItems = input.items.map(({ variantId, qty }) => ({
+    variant_id: variantId,
+    qty,
+  }));
+
   const service = createSupabaseServiceClient();
   const { data: orderId, error } = await service.rpc('place_order', {
     p_organization_id: ctx.organizationId,
     p_user_id: ctx.userId,
-    p_items: input.items as unknown as Json,
+    p_items: rpcItems as unknown as Json,
     p_fulfillment: input.fulfillment,
     p_shipping_address: (input.shippingAddress ?? null) as unknown as Json,
   });

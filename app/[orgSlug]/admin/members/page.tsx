@@ -1,9 +1,9 @@
 import { requireAdmin } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getOrgCurrency } from '@/lib/currency/server';
-import { Badge } from '@/components/ui/badge';
 import { InviteForm } from './invite-form';
 import { MemberManager, type MemberRow } from './member-manager';
+import { PendingInvitesTable } from './pending-invites';
 
 export const metadata = { title: 'Members · SwagVault' };
 
@@ -76,42 +76,15 @@ export default async function MembersPage({
       />
 
       {(invites ?? []).length > 0 ? (
-        <section className="space-y-4">
-          <h2 className="font-heading text-xl font-bold uppercase">
-            Pending invites
-          </h2>
-          <div className="overflow-hidden border-2 border-foreground bg-card">
-            <table className="w-full text-sm">
-              <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-bold">Email</th>
-                  <th className="px-4 py-3 font-bold">Role</th>
-                  <th className="px-4 py-3 font-bold">Expires</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(invites ?? []).map((i, idx) => (
-                  <tr
-                    key={i.id}
-                    className={
-                      idx === (invites ?? []).length - 1
-                        ? ''
-                        : 'border-b-2 border-foreground/10'
-                    }
-                  >
-                    <td className="px-4 py-3">{i.email}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline">{i.role}</Badge>
-                    </td>
-                    <td className="px-4 py-3 label-mono text-muted-foreground">
-                      {new Date(i.expires_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <PendingInvitesTable
+          slug={orgSlug}
+          invites={(invites ?? []).map((i) => ({
+            id: i.id,
+            email: i.email,
+            role: i.role,
+            expires_at: i.expires_at,
+          }))}
+        />
       ) : null}
     </div>
   );

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { logAudit } from '@/lib/audit/log';
 
 export type AdminOrderActionResult = { error: string | null };
 
@@ -38,6 +39,14 @@ export async function fulfillOrderAction(
     .eq('id', orderId)
     .eq('organization_id', ctx.organizationId);
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+    action: 'order_fulfilled',
+    targetType: 'order',
+    targetId: orderId,
+  });
 
   revalidatePath(`/${slug}/admin/orders`);
   revalidatePath(`/${slug}/admin/orders/${orderId}`);
@@ -77,6 +86,14 @@ export async function cancelOrderAction(
     }
     return { error: error.message };
   }
+
+  await logAudit({
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+    action: 'order_cancelled',
+    targetType: 'order',
+    targetId: orderId,
+  });
 
   revalidatePath(`/${slug}/admin/orders`);
   revalidatePath(`/${slug}/admin/orders/${orderId}`);

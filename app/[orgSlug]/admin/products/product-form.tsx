@@ -424,7 +424,9 @@ function SingleVariantEditor({
             type="number"
             min={0}
             step={scale === 1 ? 1 : 1 / scale}
-            value={variant.price_minor_units / scale}
+            // Render '' when 0 so the input is empty by default — otherwise
+            // typing prepends to a "0" and you get "025" instead of "25".
+            value={variant.price_minor_units === 0 ? '' : variant.price_minor_units / scale}
             onChange={(e) =>
               onChange({
                 price_minor_units: Math.round(Number(e.target.value) * scale),
@@ -440,7 +442,7 @@ function SingleVariantEditor({
           type="number"
           min={0}
           step={1}
-          value={variant.inventory_count}
+          value={variant.inventory_count === 0 ? '' : variant.inventory_count}
           onChange={(e) =>
             onChange({ inventory_count: Math.max(0, Number(e.target.value)) })
           }
@@ -499,7 +501,7 @@ function VariantRow({
             type="number"
             min={0}
             step={scale === 1 ? 1 : 1 / scale}
-            value={variant.price_minor_units / scale}
+            value={variant.price_minor_units === 0 ? '' : variant.price_minor_units / scale}
             onChange={(e) =>
               onChange({
                 price_minor_units: Math.round(Number(e.target.value) * scale),
@@ -512,7 +514,7 @@ function VariantRow({
           type="number"
           min={0}
           step={1}
-          value={variant.inventory_count}
+          value={variant.inventory_count === 0 ? '' : variant.inventory_count}
           onChange={(e) =>
             onChange({ inventory_count: Math.max(0, Number(e.target.value)) })
           }

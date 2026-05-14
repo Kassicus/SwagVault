@@ -1,4 +1,5 @@
-// Neo-brutalist invite email — same dark palette as the order emails.
+// Sent when an admin invites someone who already has a SwagVault account
+// (e.g. they're in another org). No password to set — just sign in.
 
 const C = {
   bg: '#0e0e0c',
@@ -15,28 +16,21 @@ const FONT_SANS =
 const FONT_MONO =
   "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace";
 
-export function inviteEmail(args: {
+export function addedToOrgEmail(args: {
   orgName: string;
-  acceptUrl: string;
-  invitedBy: string | null;
+  signInUrl: string;
 }): { subject: string; html: string; text: string } {
-  const { orgName, acceptUrl, invitedBy } = args;
-  const subject = `Join ${orgName} on SwagVault`;
+  const { orgName, signInUrl } = args;
+  const subject = `You've been added to ${orgName} on SwagVault`;
 
   const text = [
-    '// You\'re invited',
+    "// You've been added",
     `JOIN ${orgName.toUpperCase()}`,
     '',
-    `${invitedBy ? invitedBy + ' has' : 'You have been'} invited you to join ${orgName} on SwagVault.`,
+    `You already have a SwagVault account, so we've gone ahead and added you to ${orgName}.`,
     '',
-    `Accept the invitation: ${acceptUrl}`,
-    '',
-    'If you weren\'t expecting this, you can safely ignore this email.',
+    `Sign in: ${signInUrl}`,
   ].join('\n');
-
-  const lead = invitedBy
-    ? `<strong>${escape(invitedBy)}</strong> has invited you to join <strong>${escape(orgName)}</strong>.`
-    : `You&rsquo;ve been invited to join <strong>${escape(orgName)}</strong>.`;
 
   const html = `<!doctype html>
 <html lang="en">
@@ -45,54 +39,44 @@ export function inviteEmail(args: {
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="color-scheme" content="dark only" />
 <meta name="supported-color-schemes" content="dark only" />
-<title>Join ${escape(orgName)} on SwagVault</title>
+<title>Added to ${escape(orgName)}</title>
 </head>
 <body style="margin:0;padding:0;background:${C.bg};font-family:${FONT_SANS};color:${C.fg};-webkit-font-smoothing:antialiased;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.bg};">
   <tr>
     <td align="center" style="padding:32px 16px;">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:100%;">
-        <!-- Logo -->
         <tr>
           <td style="padding:0 0 24px 0;font-family:${FONT_MONO};font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.fg};font-weight:700;">
             SwagVault
           </td>
         </tr>
 
-        <!-- Header card -->
         <tr>
           <td style="background:${C.card};border:2px solid ${C.fg};padding:28px;">
             <div style="font-family:${FONT_MONO};font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.mint};font-weight:700;">
-              // You&rsquo;re invited
+              // You&rsquo;ve been added
             </div>
             <h1 style="margin:12px 0 0 0;font-size:32px;line-height:1.05;letter-spacing:-0.02em;text-transform:uppercase;color:${C.fg};font-weight:900;">
-              Join ${escape(orgName)}
+              Welcome to ${escape(orgName)}
             </h1>
             <p style="margin:14px 0 0 0;font-size:15px;line-height:1.55;color:${C.muted};">
-              ${lead} Click below to set a password and you&rsquo;ll land
-              right in their storefront.
+              You already have a SwagVault account, so we&rsquo;ve added you to
+              <strong>${escape(orgName)}</strong>. Sign in and you&rsquo;ll land
+              in their storefront.
             </p>
           </td>
         </tr>
 
-        <!-- CTA -->
         <tr><td style="height:24px;line-height:24px;font-size:24px;">&nbsp;</td></tr>
         <tr>
           <td align="center">
-            <a href="${escape(acceptUrl)}" style="display:inline-block;background:${C.primary};color:${C.primaryFg};border:2px solid ${C.fg};padding:14px 24px;font-family:${FONT_SANS};font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.04em;text-decoration:none;">
-              Set up your account →
+            <a href="${escape(signInUrl)}" style="display:inline-block;background:${C.primary};color:${C.primaryFg};border:2px solid ${C.fg};padding:14px 24px;font-family:${FONT_SANS};font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.04em;text-decoration:none;">
+              Sign in →
             </a>
           </td>
         </tr>
 
-        <tr><td style="height:16px;line-height:16px;font-size:16px;">&nbsp;</td></tr>
-        <tr>
-          <td align="center" style="font-family:${FONT_MONO};font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.muted};">
-            Not expecting this? You can safely ignore the email.
-          </td>
-        </tr>
-
-        <!-- Footer -->
         <tr><td style="height:32px;line-height:32px;font-size:32px;">&nbsp;</td></tr>
         <tr>
           <td style="border-top:2px solid ${C.fg};padding-top:14px;font-family:${FONT_MONO};font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.muted};">

@@ -4,8 +4,15 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { generateInviteToken, INVITE_TTL_DAYS } from '@/lib/invites';
-import { resend, FROM_EMAIL } from '@/lib/email/resend';
+import {
+  resend,
+  FROM_EMAIL,
+  REPLY_TO,
+  transactionalHeaders,
+} from '@/lib/email/resend';
 import { inviteEmail } from '@/lib/email/templates/invite';
+import { addedToOrgEmail } from '@/lib/email/templates/added-to-org';
+import { findUserByEmail } from '@/lib/auth/admin';
 
 export type InviteState = { error: string | null; success: string | null };
 
@@ -37,10 +44,53 @@ export async function inviteMemberAction(
   }
 
   const service = createSupabaseServiceClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
-  // We can't easily look up users by email without an admin-API call. The
-  // accept-invite handler upserts memberships, so a duplicate invite is a no-op.
+  // Branch A: email already has a SwagVault account (multi-org case).
+  // Skip the password-set flow entirely — just upsert the membership and
+  // point them at /login.
+  const existingUser = await findUserByEmail(service, email);
+  if (existingUser) {
+    const { error: memErr } = await service.from('memberships').upsert(
+      {
+        organization_id: ctx.organizationId,
+        user_id: existingUser.id,
+        role,
+      },
+      { onConflict: 'organization_id,user_id', ignoreDuplicates: true },
+    );
+    if (memErr) return { error: memErr.message, success: null };
 
+    const signInUrl = `${appUrl}/login?next=${encodeURIComponent(`/${slug}`)}`;
+    const tmpl = addedToOrgEmail({
+      orgName: ctx.organization.name,
+      signInUrl,
+    });
+    const { error: emailErr } = await resend().emails.send({
+      from: FROM_EMAIL,
+      replyTo: REPLY_TO,
+      to: email,
+      subject: tmpl.subject,
+      html: tmpl.html,
+      text: tmpl.text,
+      headers: transactionalHeaders(),
+    });
+    if (emailErr) {
+      return {
+        error: `Member added but email failed: ${emailErr.message}`,
+        success: null,
+      };
+    }
+
+    revalidatePath(`/${slug}/admin/members`);
+    return {
+      error: null,
+      success: `${email} already had an account — added to ${ctx.organization.name}.`,
+    };
+  }
+
+  // Branch B: brand new user. Create an invite token and email them a
+  // password-set link.
   const { token, hash } = generateInviteToken();
   const expiresAt = new Date(
     Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000,
@@ -56,7 +106,6 @@ export async function inviteMemberAction(
   });
   if (insErr) return { error: insErr.message, success: null };
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const acceptUrl = `${appUrl}/accept-invite/${token}`;
   const tmpl = inviteEmail({
     orgName: ctx.organization.name,
@@ -66,10 +115,12 @@ export async function inviteMemberAction(
 
   const { error: emailErr } = await resend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to: email,
     subject: tmpl.subject,
     html: tmpl.html,
     text: tmpl.text,
+    headers: transactionalHeaders(),
   });
   if (emailErr) {
     return {
@@ -80,6 +131,146 @@ export async function inviteMemberAction(
 
   revalidatePath(`/${slug}/admin/members`);
   return { error: null, success: `Invite sent to ${email}.` };
+}
+
+export type InviteRowState = {
+  error: string | null;
+  success: string | null;
+};
+
+// Re-issues a pending invite: rotates the token, bumps the expiry, and sends
+// the email again. If between the original invite and the resend the email
+// already became a Supabase user (signed up directly), we resolve cleanly by
+// upserting the membership and deleting the invite row.
+export async function resendInviteAction(
+  _prev: InviteRowState,
+  formData: FormData,
+): Promise<InviteRowState> {
+  const slug = String(formData.get('slug') ?? '').toLowerCase();
+  const inviteId = String(formData.get('invite_id') ?? '');
+  if (!inviteId) return { error: 'Missing invite id.', success: null };
+
+  const ctx = await requireAdmin(slug);
+  const service = createSupabaseServiceClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+  const { data: invite, error: fErr } = await service
+    .from('invites')
+    .select('id, email, role, accepted_at')
+    .eq('id', inviteId)
+    .eq('organization_id', ctx.organizationId)
+    .maybeSingle();
+  if (fErr) return { error: fErr.message, success: null };
+  if (!invite) return { error: 'Invite not found.', success: null };
+  if (invite.accepted_at) {
+    return { error: 'Invite has already been used.', success: null };
+  }
+
+  // Did the email sign up directly in the meantime?
+  const existingUser = await findUserByEmail(service, invite.email);
+  if (existingUser) {
+    const { error: memErr } = await service.from('memberships').upsert(
+      {
+        organization_id: ctx.organizationId,
+        user_id: existingUser.id,
+        role: invite.role,
+      },
+      { onConflict: 'organization_id,user_id', ignoreDuplicates: true },
+    );
+    if (memErr) return { error: memErr.message, success: null };
+
+    await service.from('invites').delete().eq('id', invite.id);
+
+    const signInUrl = `${appUrl}/login?next=${encodeURIComponent(`/${slug}`)}`;
+    const tmpl = addedToOrgEmail({
+      orgName: ctx.organization.name,
+      signInUrl,
+    });
+    await resend().emails.send({
+      from: FROM_EMAIL,
+      replyTo: REPLY_TO,
+      to: invite.email,
+      subject: tmpl.subject,
+      html: tmpl.html,
+      text: tmpl.text,
+      headers: transactionalHeaders(),
+    });
+
+    revalidatePath(`/${slug}/admin/members`);
+    return {
+      error: null,
+      success: `${invite.email} signed up directly — added to ${ctx.organization.name}.`,
+    };
+  }
+
+  // Standard resend: rotate token, bump expiry, send fresh email.
+  const { token, hash } = generateInviteToken();
+  const expiresAt = new Date(
+    Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { error: upErr } = await service
+    .from('invites')
+    .update({ token_hash: hash, expires_at: expiresAt })
+    .eq('id', invite.id);
+  if (upErr) return { error: upErr.message, success: null };
+
+  const acceptUrl = `${appUrl}/accept-invite/${token}`;
+  const tmpl = inviteEmail({
+    orgName: ctx.organization.name,
+    acceptUrl,
+    invitedBy: null,
+  });
+  const { error: emailErr } = await resend().emails.send({
+    from: FROM_EMAIL,
+    replyTo: REPLY_TO,
+    to: invite.email,
+    subject: tmpl.subject,
+    html: tmpl.html,
+    text: tmpl.text,
+    headers: transactionalHeaders(),
+  });
+  if (emailErr) {
+    return {
+      error: `Invite rotated but email failed: ${emailErr.message}`,
+      success: null,
+    };
+  }
+
+  revalidatePath(`/${slug}/admin/members`);
+  return { error: null, success: `Invite resent to ${invite.email}.` };
+}
+
+// Deletes a pending invite. The original token becomes invalid immediately
+// because it was hashed against the row that no longer exists.
+export async function revokeInviteAction(
+  _prev: InviteRowState,
+  formData: FormData,
+): Promise<InviteRowState> {
+  const slug = String(formData.get('slug') ?? '').toLowerCase();
+  const inviteId = String(formData.get('invite_id') ?? '');
+  if (!inviteId) return { error: 'Missing invite id.', success: null };
+
+  const ctx = await requireAdmin(slug);
+  const service = createSupabaseServiceClient();
+
+  const { data: invite, error: fErr } = await service
+    .from('invites')
+    .select('id, email, accepted_at')
+    .eq('id', inviteId)
+    .eq('organization_id', ctx.organizationId)
+    .maybeSingle();
+  if (fErr) return { error: fErr.message, success: null };
+  if (!invite) return { error: 'Invite not found.', success: null };
+  if (invite.accepted_at) {
+    return { error: 'Already-accepted invites cannot be revoked.', success: null };
+  }
+
+  const { error } = await service.from('invites').delete().eq('id', invite.id);
+  if (error) return { error: error.message, success: null };
+
+  revalidatePath(`/${slug}/admin/members`);
+  return { error: null, success: `Revoked invite for ${invite.email}.` };
 }
 
 export type GrantState = {
