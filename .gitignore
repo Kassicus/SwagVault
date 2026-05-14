@@ -41,3 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# agent / CLI plugin scratch — dropped in by Stripe CLI and similar tools,
+# not project source
+.agents/
+.claude/
+skills-lock.json
