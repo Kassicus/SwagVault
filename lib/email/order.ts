@@ -1,7 +1,12 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { formatAmount } from '@/lib/currency/format';
 import { variantDisplayName } from '@/lib/products/types';
-import { resend, FROM_EMAIL } from '@/lib/email/resend';
+import {
+  resend,
+  FROM_EMAIL,
+  REPLY_TO,
+  transactionalHeaders,
+} from '@/lib/email/resend';
 import {
   orderPlacedMember,
   orderPlacedAdmin,
@@ -23,11 +28,12 @@ export async function sendOrderEmails(args: {
   try {
     const service = createSupabaseServiceClient();
 
-    // Order + items
+    // Order + items (include product_id so we can fetch thumbnails for the
+    // brutalist email rows).
     const { data: order } = await service
       .from('orders')
       .select(
-        'id, fulfillment_method, total_minor_units, order_items(product_name, variant_name, qty, unit_price_minor_units)',
+        'id, fulfillment_method, total_minor_units, order_items(product_id, product_name, variant_name, qty, unit_price_minor_units)',
       )
       .eq('id', args.orderId)
       .single();
@@ -45,16 +51,33 @@ export async function sendOrderEmails(args: {
     const { data: buyer } = await service.auth.admin.getUserById(args.userId);
     const buyerEmail = buyer?.user?.email ?? '';
 
-    const orderItems = (
-      (order as unknown as {
-        order_items: Array<{
-          product_name: string;
-          variant_name: string | null;
-          qty: number;
-          unit_price_minor_units: number;
-        }>;
-      }).order_items
-    ).map((oi) => {
+    const rawItems = (order as unknown as {
+      order_items: Array<{
+        product_id: string | null;
+        product_name: string;
+        variant_name: string | null;
+        qty: number;
+        unit_price_minor_units: number;
+      }>;
+    }).order_items;
+
+    // Batch fetch product image_paths for thumbnails. Deleted products
+    // (product_id = null after ON DELETE SET NULL) just render a placeholder.
+    const productIds = Array.from(
+      new Set(rawItems.map((i) => i.product_id).filter((x): x is string => !!x)),
+    );
+    const imageByProductId: Record<string, string | null> = {};
+    if (productIds.length > 0) {
+      const { data: products } = await service
+        .from('products')
+        .select('id, image_paths')
+        .in('id', productIds);
+      for (const p of products ?? []) {
+        imageByProductId[p.id] = p.image_paths[0] ?? null;
+      }
+    }
+
+    const orderItems = rawItems.map((oi) => {
       const variantDisplay = variantDisplayName({
         name: oi.variant_name ?? '',
         options: null,
@@ -70,6 +93,7 @@ export async function sendOrderEmails(args: {
           oi.unit_price_minor_units * oi.qty,
           currency,
         ),
+        imageUrl: oi.product_id ? imageByProductId[oi.product_id] ?? null : null,
       };
     });
 
@@ -93,10 +117,12 @@ export async function sendOrderEmails(args: {
       });
       await resend().emails.send({
         from: FROM_EMAIL,
+        replyTo: REPLY_TO,
         to: buyerEmail,
         subject: tmpl.subject,
         html: tmpl.html,
         text: tmpl.text,
+        headers: transactionalHeaders(),
       });
     }
 
@@ -127,10 +153,12 @@ export async function sendOrderEmails(args: {
       });
       await resend().emails.send({
         from: FROM_EMAIL,
+        replyTo: REPLY_TO,
         to: adminEmails,
         subject: tmpl.subject,
         html: tmpl.html,
         text: tmpl.text,
+        headers: transactionalHeaders(),
       });
     }
   } catch (err) {

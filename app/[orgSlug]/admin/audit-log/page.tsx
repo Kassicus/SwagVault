@@ -4,46 +4,109 @@ import { requireAdmin } from '@/lib/auth/session';
 import { getOrgCurrency } from '@/lib/currency/server';
 import { Money } from '@/lib/currency/money';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import type { TransactionKind } from '@/lib/supabase/types';
+import { categoryOf } from '@/lib/audit/log';
+import type { Json, TransactionKind } from '@/lib/supabase/types';
 
 export const metadata = { title: 'Audit log · SwagVault' };
 
-type Filter = 'all' | TransactionKind;
-const FILTERS: Filter[] = ['all', 'grant', 'spend', 'refund', 'adjustment'];
+type Filter = 'all' | 'money' | 'people' | 'products' | 'orders' | 'settings';
+const FILTERS: Filter[] = ['all', 'money', 'people', 'products', 'orders', 'settings'];
 
 const PAGE_SIZE = 100;
+
+type TxnRow = {
+  id: string;
+  kind: TransactionKind;
+  amount_minor_units: number;
+  user_id: string;
+  actor_user_id: string | null;
+  order_id: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+type EventRow = {
+  id: string;
+  action: string;
+  actor_user_id: string | null;
+  target_type: string | null;
+  target_id: string | null;
+  metadata: Json | null;
+  created_at: string;
+};
+
+type FeedItem =
+  | ({ source: 'txn' } & TxnRow)
+  | ({ source: 'event' } & EventRow);
 
 export default async function AuditLogPage({
   params,
   searchParams,
 }: {
   params: Promise<{ orgSlug: string }>;
-  searchParams: Promise<{ kind?: string }>;
+  searchParams: Promise<{ type?: string }>;
 }) {
   const { orgSlug } = await params;
-  const { kind: kindParam } = await searchParams;
-  const filter: Filter = (FILTERS.includes(kindParam as Filter) ? kindParam : 'all') as Filter;
+  const { type: typeParam } = await searchParams;
+  const filter: Filter = (FILTERS.includes(typeParam as Filter) ? typeParam : 'all') as Filter;
 
   const ctx = await requireAdmin(orgSlug);
   const currency = await getOrgCurrency(ctx.organizationId);
-
   const service = createSupabaseServiceClient();
-  let query = service
-    .from('transactions')
-    .select(
-      'id, kind, amount_minor_units, user_id, actor_user_id, order_id, note, created_at',
-    )
-    .eq('organization_id', ctx.organizationId)
-    .order('created_at', { ascending: false })
-    .limit(PAGE_SIZE);
-  if (filter !== 'all') query = query.eq('kind', filter);
 
-  const { data: rows } = await query;
+  // Fetch from one or both tables depending on the active filter.
+  const wantsMoney = filter === 'all' || filter === 'money';
+  const wantsEvents = filter !== 'money';
 
+  const [txnRes, eventRes] = await Promise.all([
+    wantsMoney
+      ? service
+          .from('transactions')
+          .select(
+            'id, kind, amount_minor_units, user_id, actor_user_id, order_id, note, created_at',
+          )
+          .eq('organization_id', ctx.organizationId)
+          .order('created_at', { ascending: false })
+          .limit(PAGE_SIZE)
+      : Promise.resolve({ data: [] as TxnRow[] }),
+    wantsEvents
+      ? service
+          .from('audit_logs')
+          .select(
+            'id, action, actor_user_id, target_type, target_id, metadata, created_at',
+          )
+          .eq('organization_id', ctx.organizationId)
+          .order('created_at', { ascending: false })
+          .limit(PAGE_SIZE)
+      : Promise.resolve({ data: [] as EventRow[] }),
+  ]);
+
+  const allTxns = (txnRes.data ?? []) as TxnRow[];
+  const allEvents = (eventRes.data ?? []) as EventRow[];
+
+  // Apply category filter to events (transactions are always "money").
+  const eventsAfterFilter =
+    filter === 'all'
+      ? allEvents
+      : filter === 'money'
+        ? []
+        : allEvents.filter((e) => categoryOf(e.action) === filter);
+
+  const merged: FeedItem[] = [
+    ...allTxns.map((t) => ({ source: 'txn' as const, ...t })),
+    ...eventsAfterFilter.map((e) => ({ source: 'event' as const, ...e })),
+  ]
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+    .slice(0, PAGE_SIZE);
+
+  // Batch-hydrate every distinct user id across both tables.
   const ids = new Set<string>();
-  for (const r of rows ?? []) {
-    ids.add(r.user_id);
-    if (r.actor_user_id) ids.add(r.actor_user_id);
+  for (const t of allTxns) {
+    ids.add(t.user_id);
+    if (t.actor_user_id) ids.add(t.actor_user_id);
+  }
+  for (const e of eventsAfterFilter) {
+    if (e.actor_user_id) ids.add(e.actor_user_id);
   }
   const emails: Record<string, string> = {};
   for (const id of ids) {
@@ -59,8 +122,8 @@ export default async function AuditLogPage({
           Audit log
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every {currency.name} transaction in {ctx.organization.name}, including
-          who initiated it. Showing the most recent {PAGE_SIZE}.
+          Every admin action in {ctx.organization.name}, plus the
+          financial ledger. Showing the most recent {PAGE_SIZE}.
         </p>
       </div>
 
@@ -68,7 +131,7 @@ export default async function AuditLogPage({
         {FILTERS.map((f) => (
           <Link
             key={f}
-            href={f === 'all' ? `/${orgSlug}/admin/audit-log` : `/${orgSlug}/admin/audit-log?kind=${f}`}
+            href={f === 'all' ? `/${orgSlug}/admin/audit-log` : `/${orgSlug}/admin/audit-log?type=${f}`}
             className={
               filter === f
                 ? 'border-2 border-foreground bg-foreground px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-background'
@@ -80,9 +143,9 @@ export default async function AuditLogPage({
         ))}
       </div>
 
-      {(rows ?? []).length === 0 ? (
+      {merged.length === 0 ? (
         <div className="border-2 border-dashed border-foreground/40 p-10 text-center text-sm text-muted-foreground">
-          No {filter === 'all' ? 'transactions' : `${filter} transactions`} yet.
+          Nothing in this category yet.
         </div>
       ) : (
         <div className="overflow-hidden border-2 border-foreground bg-card">
@@ -90,64 +153,60 @@ export default async function AuditLogPage({
             <thead className="border-b-2 border-foreground bg-muted text-left label-mono text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-bold">When</th>
-                <th className="px-4 py-3 font-bold">Kind</th>
-                <th className="px-4 py-3 font-bold">Member</th>
-                <th className="px-4 py-3 text-right font-bold">Amount</th>
+                <th className="px-4 py-3 font-bold">Category</th>
                 <th className="px-4 py-3 font-bold">Actor</th>
-                <th className="px-4 py-3 font-bold">Note / order</th>
+                <th className="px-4 py-3 font-bold">Event</th>
+                <th className="px-4 py-3 text-right font-bold">Amount</th>
               </tr>
             </thead>
             <tbody>
-              {(rows ?? []).map((r, idx) => {
-                const isNeg = r.amount_minor_units < 0;
-                return (
-                  <tr
-                    key={r.id}
-                    className={
-                      idx === (rows ?? []).length - 1
-                        ? ''
-                        : 'border-b-2 border-foreground/10'
-                    }
-                  >
-                    <td className="px-4 py-3 text-muted-foreground tabular-nums">
-                      {new Date(r.created_at).toLocaleString(undefined, {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <KindBadge kind={r.kind} />
-                    </td>
-                    <td className="px-4 py-3">{emails[r.user_id]}</td>
-                    <td
-                      className={`px-4 py-3 text-right font-heading font-bold tabular-nums ${
-                        isNeg ? 'text-foreground' : 'text-mint'
-                      }`}
-                    >
-                      {isNeg ? '−' : '+'}
-                      <Money
-                        amount={Math.abs(r.amount_minor_units)}
-                        currency={currency}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {r.actor_user_id ? emails[r.actor_user_id] : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {r.order_id ? (
-                        <Link
-                          href={`/${orgSlug}/admin/orders/${r.order_id}`}
-                          className="text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
-                        >
-                          {r.note ?? 'Order'}
-                        </Link>
-                      ) : (
-                        r.note ?? '—'
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {merged.map((row, idx) => (
+                <tr
+                  key={`${row.source}-${row.id}`}
+                  className={
+                    idx === merged.length - 1
+                      ? ''
+                      : 'border-b-2 border-foreground/10'
+                  }
+                >
+                  <td className="px-4 py-3 text-muted-foreground tabular-nums whitespace-nowrap">
+                    {new Date(row.created_at).toLocaleString(undefined, {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row.source === 'txn' ? (
+                      <Badge variant="outline">money</Badge>
+                    ) : (
+                      <CategoryBadge action={row.action} />
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {row.actor_user_id ? emails[row.actor_user_id] : 'system'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row.source === 'txn'
+                      ? renderTxn(row, emails, orgSlug)
+                      : renderEvent(row, orgSlug)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-heading font-bold tabular-nums">
+                    {row.source === 'txn' ? (
+                      <span
+                        className={row.amount_minor_units < 0 ? '' : 'text-mint'}
+                      >
+                        {row.amount_minor_units < 0 ? '−' : '+'}
+                        <Money
+                          amount={Math.abs(row.amount_minor_units)}
+                          currency={currency}
+                        />
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -156,14 +215,151 @@ export default async function AuditLogPage({
   );
 }
 
-function KindBadge({ kind }: { kind: string }) {
+function CategoryBadge({ action }: { action: string }) {
+  const cat = categoryOf(action);
   const variant =
-    kind === 'grant'
+    cat === 'people'
       ? 'mint'
-      : kind === 'spend'
-        ? 'muted'
-        : kind === 'refund'
-          ? 'primary'
-          : 'outline';
-  return <Badge variant={variant}>{kind}</Badge>;
+      : cat === 'products'
+        ? 'primary'
+        : cat === 'orders'
+          ? 'warn'
+          : cat === 'settings'
+            ? 'muted'
+            : 'outline';
+  return <Badge variant={variant}>{cat}</Badge>;
+}
+
+function renderTxn(
+  t: TxnRow,
+  emails: Record<string, string>,
+  slug: string,
+): React.ReactNode {
+  const recipient = emails[t.user_id] ?? '(unknown)';
+  const kindLabel = `${t.kind} → ${recipient}`;
+  const note = t.note ? ` · ${t.note}` : '';
+  if (t.order_id) {
+    return (
+      <>
+        {kindLabel}
+        {note}
+        {' · '}
+        <Link
+          href={`/${slug}/admin/orders/${t.order_id}`}
+          className="underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
+        >
+          order
+        </Link>
+      </>
+    );
+  }
+  return (
+    <>
+      {kindLabel}
+      {note}
+    </>
+  );
+}
+
+function renderEvent(e: EventRow, slug: string): React.ReactNode {
+  const meta = (e.metadata ?? {}) as Record<string, unknown>;
+  const email = typeof meta.email === 'string' ? meta.email : null;
+  const role = typeof meta.role === 'string' ? meta.role : null;
+  const name = typeof meta.name === 'string' ? meta.name : null;
+
+  switch (e.action) {
+    case 'invite_sent':
+      return `Invited ${email ?? 'someone'}${role ? ` as ${role}` : ''}`;
+    case 'invite_resent':
+      return `Resent invite to ${email ?? 'someone'}`;
+    case 'invite_revoked':
+      return `Revoked invite for ${email ?? 'someone'}`;
+    case 'invite_accepted':
+      return `Accepted invitation${email ? ` (${email})` : ''}`;
+    case 'member_added':
+      return `Added ${email ?? 'a member'}${role ? ` as ${role}` : ''}`;
+    case 'member_role_changed':
+      return `Changed role for ${email ?? 'a member'} to ${role ?? '?'}`;
+    case 'member_removed':
+      return `Removed ${email ?? 'a member'}`;
+    case 'product_created':
+      return (
+        <>
+          Created product{' '}
+          {e.target_id ? (
+            <Link
+              href={`/${slug}/admin/products/${e.target_id}`}
+              className="underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
+            >
+              {name ?? 'untitled'}
+            </Link>
+          ) : (
+            (name ?? 'untitled')
+          )}
+        </>
+      );
+    case 'product_updated':
+      return (
+        <>
+          Updated product{' '}
+          {e.target_id ? (
+            <Link
+              href={`/${slug}/admin/products/${e.target_id}`}
+              className="underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
+            >
+              {name ?? 'untitled'}
+            </Link>
+          ) : (
+            (name ?? 'untitled')
+          )}
+        </>
+      );
+    case 'product_deleted':
+      return `Deleted product ${name ?? '(unknown)'}`;
+    case 'order_fulfilled':
+      return (
+        <>
+          Marked order{' '}
+          {e.target_id ? (
+            <Link
+              href={`/${slug}/admin/orders/${e.target_id}`}
+              className="underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
+            >
+              {e.target_id.slice(0, 8)}
+            </Link>
+          ) : (
+            'an order'
+          )}{' '}
+          fulfilled
+        </>
+      );
+    case 'order_cancelled':
+      return (
+        <>
+          Cancelled order{' '}
+          {e.target_id ? (
+            <Link
+              href={`/${slug}/admin/orders/${e.target_id}`}
+              className="underline decoration-primary decoration-2 underline-offset-4 hover:text-primary"
+            >
+              {e.target_id.slice(0, 8)}
+            </Link>
+          ) : (
+            'an order'
+          )}
+        </>
+      );
+    case 'currency_updated':
+      return 'Updated currency settings';
+    case 'settings_updated':
+      return 'Updated org settings';
+    case 'subscription_changed':
+      return `Subscription changed${
+        typeof meta.stripe_event_type === 'string'
+          ? ` (${meta.stripe_event_type})`
+          : ''
+      }`;
+    default:
+      return e.action;
+  }
 }

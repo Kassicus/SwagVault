@@ -5,6 +5,7 @@ import { put } from '@vercel/blob';
 import { requireAdmin } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { Database } from '@/lib/supabase/types';
+import { logAudit } from '@/lib/audit/log';
 
 export type SaveCurrencyState = {
   error: string | null;
@@ -82,6 +83,21 @@ export async function saveCurrencyAction(
     .update(update)
     .eq('organization_id', ctx.organizationId);
   if (error) return { error: error.message, success: false };
+
+  await logAudit({
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+    action: 'currency_updated',
+    targetType: 'currency',
+    targetId: ctx.organizationId,
+    metadata: {
+      name,
+      symbol,
+      color_hex: colorHex,
+      decimal_places: decimalPlaces,
+      icon_changed: !!iconUrl,
+    },
+  });
 
   revalidatePath(`/${slug}/admin/currency`);
   revalidatePath(`/${slug}/admin`);

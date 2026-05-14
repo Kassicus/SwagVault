@@ -1,11 +1,6 @@
-import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { buttonVariants } from '@/components/ui/button';
 import { BotIdShield } from '@/components/botid-shield';
-import {
-  createSupabaseServerClient,
-  createSupabaseServiceClient,
-} from '@/lib/supabase/server';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { hashInviteToken } from '@/lib/invites';
 import { AcceptForm } from './accept-form';
 
@@ -37,9 +32,6 @@ export default async function AcceptInvitePage({
   const used = !!invite?.accepted_at;
   const invalid = !invite || expired || used;
 
-  const supabase = await createSupabaseServerClient();
-  const { data: u } = await supabase.auth.getUser();
-
   return (
     <main className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center px-6 py-12">
       <BotIdShield />
@@ -55,18 +47,20 @@ export default async function AcceptInvitePage({
           {!invite ? (
             <Notice>This invitation link isn&rsquo;t valid.</Notice>
           ) : used ? (
-            <Notice>This invitation has already been used.</Notice>
-          ) : expired ? (
-            <Notice>This invitation has expired.</Notice>
-          ) : !u.user ? (
-            <UnauthCta token={token} email={invite.email} />
-          ) : u.user.email?.toLowerCase() !== invite.email.toLowerCase() ? (
             <Notice>
-              This invite is for <strong>{invite.email}</strong>. Sign in with
-              that email to accept.
+              This invitation has already been used. Sign in to continue.
+            </Notice>
+          ) : expired ? (
+            <Notice>
+              This invitation has expired. Ask your admin to send a new one.
             </Notice>
           ) : (
-            <AcceptForm token={token} role={invite.role} />
+            <AcceptForm
+              token={token}
+              email={invite.email}
+              role={invite.role}
+              orgName={org?.name ?? 'your team'}
+            />
           )}
         </CardContent>
       </Card>
@@ -76,30 +70,4 @@ export default async function AcceptInvitePage({
 
 function Notice({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>;
-}
-
-function UnauthCta({ token, email }: { token: string; email: string }) {
-  const next = `/accept-invite/${token}`;
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Sign in or create a SwagVault account for <strong>{email}</strong> to
-        accept.
-      </p>
-      <div className="flex gap-2">
-        <Link
-          href={`/login?next=${encodeURIComponent(next)}`}
-          className={buttonVariants({ size: 'default' })}
-        >
-          Sign in
-        </Link>
-        <Link
-          href={`/signup?next=${encodeURIComponent(next)}`}
-          className={buttonVariants({ variant: 'outline', size: 'default' })}
-        >
-          Create account
-        </Link>
-      </div>
-    </div>
-  );
 }

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { VariantInput } from '@/lib/products/types';
+import { logAudit } from '@/lib/audit/log';
 
 export type SaveState = { error: string | null; redirectTo?: string };
 
@@ -129,6 +130,20 @@ export async function createProductAction(
     .insert(variantRows);
   if (vErr) return { error: vErr.message };
 
+  await logAudit({
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+    action: 'product_created',
+    targetType: 'product',
+    targetId: product.id,
+    metadata: {
+      name: parsed.name,
+      variant_count: parsed.variants.length,
+      image_count: parsed.image_paths.length,
+      active: parsed.active,
+    },
+  });
+
   revalidatePath(`/${slug}/admin/products`);
   revalidatePath(`/${slug}`);
   return { error: null, redirectTo: `/${slug}/admin/products` };
@@ -215,6 +230,20 @@ export async function updateProductAction(
     }
   }
 
+  await logAudit({
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+    action: 'product_updated',
+    targetType: 'product',
+    targetId: productId,
+    metadata: {
+      name: parsed.name,
+      variant_count: parsed.variants.length,
+      image_count: parsed.image_paths.length,
+      active: parsed.active,
+    },
+  });
+
   revalidatePath(`/${slug}/admin/products`);
   revalidatePath(`/${slug}/admin/products/${productId}`);
   revalidatePath(`/${slug}`);
@@ -228,12 +257,31 @@ export async function deleteProductAction(formData: FormData) {
   if (!productId) throw new Error('Missing product id.');
   const ctx = await requireAdmin(slug);
   const service = createSupabaseServiceClient();
+
+  // Capture the name before deletion so the audit row stays meaningful.
+  const { data: prior } = await service
+    .from('products')
+    .select('name')
+    .eq('id', productId)
+    .eq('organization_id', ctx.organizationId)
+    .maybeSingle();
+
   const { error } = await service
     .from('products')
     .delete()
     .eq('id', productId)
     .eq('organization_id', ctx.organizationId);
   if (error) throw new Error(error.message);
+
+  await logAudit({
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+    action: 'product_deleted',
+    targetType: 'product',
+    targetId: productId,
+    metadata: { name: prior?.name ?? null },
+  });
+
   revalidatePath(`/${slug}/admin/products`);
   revalidatePath(`/${slug}`);
   redirect(`/${slug}/admin/products`);

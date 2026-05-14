@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { FulfillmentMode } from '@/lib/supabase/types';
+import { logAudit } from '@/lib/audit/log';
 
 export type SettingsState = { error: string | null; success: string | null };
 
@@ -45,6 +46,20 @@ export async function updateOrgSettingsAction(
     })
     .eq('id', ctx.organizationId);
   if (error) return { error: error.message, success: null };
+
+  await logAudit({
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+    action: 'settings_updated',
+    targetType: 'organization',
+    targetId: ctx.organizationId,
+    metadata: {
+      name,
+      fulfillment_mode: fulfillmentMode,
+      pickup_location: pickupLocation,
+      leaderboard_enabled: leaderboardEnabled,
+    },
+  });
 
   revalidatePath(`/${slug}/admin/settings`);
   revalidatePath(`/${slug}`);

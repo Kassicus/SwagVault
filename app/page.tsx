@@ -67,11 +67,6 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 pt-4 label-mono text-muted-foreground">
-              <span>★ 60-second setup</span>
-              <span>★ Stripe billing</span>
-              <span>★ Multi-tenant by design</span>
-            </div>
           </div>
 
           {/* Right side: stacked feature "cards" — chunky brutalist tiles. */}

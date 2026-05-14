@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { stripe } from '@/lib/stripe/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { SubscriptionPlan, SubscriptionStatus } from '@/lib/supabase/types';
+import { logAudit } from '@/lib/audit/log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -108,7 +109,7 @@ async function handleEvent(event: Stripe.Event) {
   if (customerId) {
     const { data: org } = await service
       .from('organizations')
-      .select('id')
+      .select('id, subscription_status, subscription_plan')
       .eq('stripe_customer_id', customerId)
       .maybeSingle();
     if (org) {
@@ -116,6 +117,21 @@ async function handleEvent(event: Stripe.Event) {
         .from('subscription_events')
         .update({ organization_id: org.id })
         .eq('stripe_event_id', event.id);
+
+      // System-driven event — no actor user.
+      await logAudit({
+        organizationId: org.id,
+        actorUserId: null,
+        action: 'subscription_changed',
+        targetType: 'organization',
+        targetId: org.id,
+        metadata: {
+          stripe_event_id: event.id,
+          stripe_event_type: event.type,
+          status: org.subscription_status,
+          plan: org.subscription_plan,
+        },
+      });
     }
   }
 }

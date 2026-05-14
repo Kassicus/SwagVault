@@ -285,6 +285,30 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['transactions']['Insert']>;
         Relationships: [];
       };
+      audit_logs: {
+        Row: {
+          id: string;
+          organization_id: string;
+          actor_user_id: string | null;
+          action: string;
+          target_type: string | null;
+          target_id: string | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          actor_user_id?: string | null;
+          action: string;
+          target_type?: string | null;
+          target_id?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['audit_logs']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
